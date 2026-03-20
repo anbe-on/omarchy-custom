@@ -1,74 +1,85 @@
 @import "../omarchy/current/theme/waybar.css";
 
 * {
-  background-color: @background;
-  color: @foreground;
-
-  border: none;
-  border-radius: 0;
+  background: transparent;
+  border-radius: 2px;
   min-height: 0;
-  font-family: 'JetBrainsMono Nerd Font';
-  font-size: 12px;
+  font-family: "GeistMono Nerd Font", monospace;
+  font-size: 13px;
 }
 
-.modules-left {
-  margin-left: 8px;
+window#waybar,
+#tray,
+.modules-left, .modules-right, .modules-center {
 }
 
-.modules-right {
-  margin-right: 8px;
+menu, .menu, .gtk-menu, .indicator-menu {
+  background: rgba(22, 22, 29, 0.5);
+  color: @foreground;
 }
 
-#workspaces button {
-  all: initial;
-  padding: 0 6px;
-  margin: 0 1.5px;
-  min-width: 9px;
+.modules-left, .modules-right {
+  padding: 0px 8px;
+  color: @foreground;
+  text-shadow:
+      -1px -1px 2 rgba(22, 22, 29, 0.5),
+       1px -1px 2 rgba(22, 22, 29, 0.5),
+      -1px  1px 2 rgba(22, 22, 29, 0.5),
+       1px  1px 2 rgba(22, 22, 29, 0.5);
 }
 
-#workspaces button.empty {
-  opacity: 0.5;
+.modules-center {
+  padding: 0px 1px;
 }
 
-#cpu,
+#hardware,
 #battery,
+#network,
+#bluetooth,
 #pulseaudio,
 #custom-omarchy,
-#custom-update {
-  min-width: 12px;
-  margin: 0 7.5px;
+#custom-display,
+#clock {
+  min-width: 4px;
+  margin: 0 2px;
+  color: @foreground;
+  padding: 0px 8px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+#hardware:hover,
+#battery:hover,
+#network:hover,
+#bluetooth:hover,
+#pulseaudio:hover,
+#custom-omarchy:hover,
+#clock:hover {
+  background-color: @foreground;
+  color: rgba(22, 22, 29, 0.5);
+}
+
+#taskbar{
+  min-width: 4px;
+  margin: 0 2px;
+  padding: 0 0px;
 }
 
 #tray {
-  margin-right: 16px;
+  min-width: 4px;
+  margin: 0 2px;
+  padding: 0 8px;
 }
 
-#bluetooth {
-  margin-right: 17px;
+#taskbar button,
+#tray button {
+  color: @foreground;
+  padding: 0px 8px;
+  transition: background-color 0.2s ease;
 }
 
-#network {
-  margin-right: 13px;
-}
-
-#custom-expand-icon {
-  margin-right: 18px;
-}
-
-tooltip {
-  padding: 2px;
-}
-
-#custom-update {
-  font-size: 10px;
-}
-
-#clock {
-  margin-left: 8.75px;
-}
-
-.hidden {
-  opacity: 0;
+#taskbar button:hover,
+#tray button:hover {
+  background-color: @foreground;
 }
 
 #custom-screenrecording-indicator,
@@ -85,9 +96,14 @@ tooltip {
   color: #a55555;
 }
 
-#custom-idle-indicator.active,
-#custom-notification-silencing-indicator.active {
-  color: #a55555;
+tooltip {
+  padding: 4px 6px;
+  background-color: @background;
+  border-radius: 4px;
+}
+
+.hidden {
+  opacity: 0;
 }
 
 #custom-voxtype {
@@ -96,5 +112,10 @@ tooltip {
 }
 
 #custom-voxtype.recording {
+  color: #a55555;
+}
+
+#custom-idle-indicator.active,
+#custom-notification-silencing-indicator.active {
   color: #a55555;
 }

@@ -1,156 +1,178 @@
 {
-  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
-  "logo": {
-    "type": "file",
-    "source": "~/.config/omarchy/branding/about.txt",
-    "color": { "1": "green" },
-    "padding": {
-      "top": 2,
-      "right": 6,
-      "left": 2
-    }
-  },
-  "modules": [
-    "break",
-    {
-      "type": "custom",
-      "format": "\u001b[90m┌──────────────────────Hardware──────────────────────┐"
+    "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+    "logo": {
+        "type": "none",
+        "position": "top",
+        "padding": {
+            "bottom": 0,
+            "top": 0,
+            "right": 1
+        }
     },
-    {
-      "type": "host",
-      "key": " PC",
-      "keyColor": "green"
+    "display": {
+        "separator": " "
     },
-    {
-      "type": "cpu",
-      "key": "│ ├",
-      "showPeCoreCount": true,
-      "keyColor": "green"
-    },
-    {
-      "type": "gpu",
-      "key": "│ ├",
-      "detectionMethod": "pci",
-      "keyColor": "green"
-    },
-    {
-      "type": "display",
-      "key": "│ ├󱄄",
-      "keyColor": "green"
-    },
-    {
-      "type": "disk",
-      "key": "│ ├󰋊",
-      "keyColor": "green"
-    },
-    {
-      "type": "memory",
-      "key": "│ ├",
-      "keyColor": "green"
-    },
-    {
-      "type": "swap",
-      "key": "└ └󰓡 ",
-      "keyColor": "green"
-    },
-    {
-      "type": "custom",
-      "format": "\u001b[90m└────────────────────────────────────────────────────┘"
-    },
-    "break",
-    {
-      "type": "custom",
-      "format": "\u001b[90m┌──────────────────────Software──────────────────────┐"
-    },
-    {
-      "type": "command",
-      "key": "\ue900 OS",
-      "keyColor": "blue",
-      "text": "version=$(omarchy-version); echo \"Omarchy $version\""
-    },
-    {
-      "type": "command",
-      "key": "│ ├󰘬",
-      "keyColor": "blue",
-      "text": "branch=$(omarchy-version-branch); echo \"$branch\""
-    },
-    {
-      "type": "command",
-      "key": "│ ├󰔫",
-      "keyColor": "blue",
-      "text": "channel=$(omarchy-version-channel); echo \"$channel\""
-    },
-    {
-      "type": "kernel",
-      "key": "│ ├",
-      "keyColor": "blue"
-    },
-    {
-      "type": "wm",
-      "key": "│ ├",
-      "keyColor": "blue"
-    },
-    {
-      "type": "de",
-      "key": " DE",
-      "keyColor": "blue"
-    },
-    {
-      "type": "terminal",
-      "key": "│ ├",
-      "keyColor": "blue"
-    },
-    {
-      "type": "packages",
-      "key": "│ ├󰏖",
-      "keyColor": "blue"
-    },
-    {
-      "type": "wmtheme",
-      "key": "│ ├󰉼",
-      "keyColor": "blue"
-    },
-    {
-      "type": "command",
-      "key": "│ ├󰸌",
-      "keyColor": "blue",
-      "text": "theme=$(omarchy-theme-current); echo -e \"$theme \\e[38m●\\e[37m●\\e[36m●\\e[35m●\\e[34m●\\e[33m●\\e[32m●\\e[31m●\""
-    },
-    {
-      "type": "terminalfont",
-      "key": "└ └",
-      "keyColor": "blue"
-    },
-    {
-      "type": "custom",
-      "format": "\u001b[90m└────────────────────────────────────────────────────┘"
-    },
-    "break",
-    {
-      "type": "custom",
-      "format": "\u001b[90m┌────────────────Age / Uptime / Update───────────────┐"
-    },
-    {
-      "type": "command",
-      "key": "󱦟 OS Age",
-      "keyColor": "magenta",
-      "text": "echo $(( ($(date +%s) - $(stat -c %W /)) / 86400 )) days"
-    },
-    {
-      "type": "uptime",
-      "key": "󱫐 Uptime",
-      "keyColor": "magenta"
-    },
-    {
-      "type": "command",
-      "key": " Update",
-      "keyColor": "magenta",
-      "text": "updated=$(omarchy-version-pkgs); echo \"$updated\""
-    },
-    {
-      "type": "custom",
-      "format": "\u001b[90m└────────────────────────────────────────────────────┘"
-    },
-    "break"
-  ]
+    "modules": [
+        {
+            "key": "╭───────────╮",
+            "type": "custom"
+        },
+        {
+            "type": "title",
+            "key": "│ {#30}{#39} u@h     {#keys}│",
+            "format": "{user-name}@{host-name}"
+        },
+        {
+            "key": "│ {#33}󰍛{#39} cpu     {#keys}│",
+            "type": "cpu",
+            "temp": true,
+            "showPeCoreCount": true
+        },
+        {
+          "type": "gpu",
+          "key": "| {#33}{icon}{#39} gpu     {#keys}│",
+          "detectionMethod": "auto",
+          "driverSpecific": true,
+          "format": "{name} {#2}C:{core-count}{?frequency} {frequency}{?} {type}"
+        },
+        {
+          "key": "│ {#33}{#39} ram     {#keys}│",
+          "type": "memory"
+        },
+        {
+          "key": "│ {#33}{#39} swap    {#keys}│",
+          "type": "swap"
+        },
+        {
+            "type": "disk",
+            "key": "│ {#33}󰉉{#39} disk    {#keys}│",
+            "format": "{mountpoint} – {size-used} \/ {size-total} ({size-percentage})"
+        },
+        {
+            "key": "│ {#33}󰩟{#39} network {#keys}│",
+            "type": "localip",
+            "format": "({ifname})"
+        },
+        {
+            "key": "│ {#33}󰩟{#39} battery {#keys}│",
+            "type": "battery"
+        },
+        {
+            "key": "│ {#30}{icon}{#39} distro  {#keys}│{#30}",
+            "type": "os"
+        },
+        {
+            "key": "│ {#30}{#39} kernel  {#keys}│",
+            "type": "kernel"
+        },
+        {
+            "key": "│ {#37}󰇄{#39} desktop {#keys}│",
+            "type": "de"
+        },
+        {
+            "key": "│ {#37}{icon}{#39} wm      {#keys}│",
+            "type": "wm"
+        },
+        {
+            "type": "command",
+            "keyIcon": "",
+            "key": "│ {#37}{icon}{#39} wm      {#keys}│",
+            "text": "glazewm --version",
+            "format": "glazewm {~7}"
+        },
+        {
+            "type": "display",
+            "key": "│ {#37}{icon}{#39} display {#keys}│",
+            "format": "{width}x{height} @ {refresh-rate} Hz {physical-width}x{physical-height} mm ({inch} inches, {ppi} ppi)"
+        },
+        {
+            "key": "│ {#cyan}{#39} term    {#keys}│",
+            "type": "terminal"
+        },
+        {
+            "key": "│ {#cyan}{#39} shell   {#keys}│",
+            "type": "shell"
+        },
+        {
+            "key": "│ {#cyan}{#39} pkg     {#keys}│",
+            "type": "packages"
+        },
+        {
+            "type": "command",
+            "keyIcon": "",
+            "key": "│ {#cyan}{icon}{#39} Rust    {#keys}│",
+            "text": "rustc --version | cut -d' ' -f2",
+            "format": "rustc {}"
+        },
+        {
+            "type": "command",
+            "keyIcon": "",
+            "key": "│ {#cyan}{icon}{#39} Clang   {#keys}│",
+            "text": "clang --version | head -1 | awk '{print $NF}'",
+            "format": "clang {}"
+        },
+        {
+            "type": "command",
+            "keyIcon": "",
+            "key": "│ {#cyan}{icon}{#39} NodeJS  {#keys}│",
+            "text": "node --version",
+            "format": "node {~1}"
+        },
+        {
+            "type": "command",
+            "keyIcon": "",
+            "key": "│ {#cyan}{icon}{#39} python  {#keys}│",
+            "text": "python --version",
+            "format": "python {~7}"
+        },
+        {
+            "type": "command",
+            "keyIcon": "",
+            "key": "│ {#cyan}{icon}{#39} Go      {#keys}│",
+            "text": "go version | cut -d' ' -f3",
+            "format": "go {~2}"
+        },
+        {
+            "type": "command",
+            "keyIcon": "",
+            "key": "│ {#cyan}{icon}{#39} Zig     {#keys}│",
+            "text": "zig version",
+            "format": "zig {}"
+        },
+        {
+            "type": "editor",
+            "key": "│ {#cyan}{icon}{#39} Editor  {#keys}│"
+        },
+        {
+            "type": "command",
+            "keyIcon": "󰊢",
+            "key": "│ {#cyan}{icon}{#39} Git     {#keys}│",
+            "text": "git version",
+            "format": "git {~12}"
+        },
+        {
+          "key": "│ {#34}󰅐{#39} uptime  {#keys}│",
+          "type": "uptime"
+        },
+        {
+          "type": "disk",
+          "keyIcon": "",
+          "key": "│ {#34}{icon}{#39} os age  {#keys}│",
+          "folders": "/",
+          "format": "{create-time:10} {#2}[{days} days]"
+        },
+        {
+            "key": "├───────────┤",
+            "type": "custom"
+        },
+        {
+            "key": "│ {#39} colors  {#keys}│",
+            "type": "colors",
+            "symbol": "circle"
+        },
+        {
+            "key": "╰───────────╯",
+            "type": "custom"
+        }
+    ]
 }

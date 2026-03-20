@@ -1,0 +1,106 @@
+# Select Tailscale machine or local network detected with nmap and then SSH function with fzf selection
+tssh() {
+  local selected_device selected_user username ip
+  local scan_file tail_pid_file scanner_pids tail_pid
+  local default_iface subnet
+
+  # Create temp files securely
+  scan_file=$(mktemp -t tssh_scan.XXXXXX)
+  tail_pid_file=$(mktemp -t tssh_pid.XXXXXX)
+
+  # Cleanup function to prevent dangling processes and files
+  cleanup() {
+    local t_pid
+    t_pid=$(cat "$tail_pid_file" 2>/dev/null)
+    [ -n "$t_pid" ] && kill "$t_pid" 2>/dev/null
+    kill $scanner_pids 2>/dev/null
+    rm -f "$scan_file" "$tail_pid_file"
+  }
+
+  # Ensure cleanup runs if the user interrupts (Ctrl+C)
+  trap 'cleanup; trap - INT; return 1' INT
+
+  # Define Scan Functions
+  scan_tailscale() {
+    if ! command -v tailscale &> /dev/null || ! command -v jq &> /dev/null; then return; fi
+    # Stream output immediately
+    tailscale status --json | jq -r '
+      .Peer | to_entries[] | .value | select(.Online == true) |
+      "\(.TailscaleIPs[0]) \(.HostName) \(.User[.UserID | tostring].LoginName)@ \(.OS) \(if .Active then "active" else "idle" end)"
+    ' 2>/dev/null | while read -r ip host user os status; do
+      printf "%-16s %-25s %-20s %-12s %s\n" "$ip" "$host" "$user" "$os" "$status"
+    done
+  }
+
+  # Scan Local Network
+  scan_local() {
+    if ! command -v nmap &> /dev/null || ! command -v ip &> /dev/null; then return; fi
+
+    # Linux native subnet detection
+    default_iface=$(ip route show default | awk '/default/ {print $5; exit}')
+    if [ -n "$default_iface" ]; then
+      subnet=$(ip -o -f inet addr show "$default_iface" | awk '{print $4; exit}')
+    fi
+
+    if [ -n "$subnet" ]; then
+      # Redirect output strictly to avoid holding pipes open
+      # -n: No DNS resolution
+      # -T5: Aggressive timing template
+      # --max-retries 1: Don't retry dead hosts
+      # --host-timeout 2s: Give up on slow hosts quickly
+      # --open: Only show open ports
+      nmap -n -T5 --min-parallelism 100 --max-retries 1 --host-timeout 2s --open -oG - -p 22 "$subnet" 2>/dev/null | \
+        awk '/Up$/ {
+          ip=$2; hostname=$3; gsub(/[()]/, "", hostname);
+          if (hostname == "") hostname="local-device";
+          printf "%-16s %-25s %-20s %-12s %s\n", ip, hostname, "local@", "LAN", "active";
+          fflush();
+        }'
+    fi
+  }
+
+  # Start Scans
+  # start them and redirect all output (stdout/stderr) to the file/null
+  ( scan_tailscale >> "$scan_file" 2>/dev/null & )
+  scanner_pids="$! "
+
+  ( scan_local >> "$scan_file" 2>/dev/null & )
+  scanner_pids+="$!"
+
+  # Run FZF
+  # run 'tail -f' in the BACKGROUND so the shell doesn't wait for it.
+  # echo its PID to a file so we can kill it later.
+  selected_device=$(
+    { tail -f -n +1 "$scan_file" 2>/dev/null & echo $! > "$tail_pid_file"; } | \
+    fzf --header="Select Device (Scanning in parallel...)" --reverse --height=40%
+  )
+
+  # Cleanup
+  cleanup
+  trap - INT
+
+  # Process Selection
+  if [ -z "$selected_device" ]; then
+    echo "No device selected."
+    return 1
+  fi
+
+  ip=$(echo "$selected_device" | awk '{print $1}')
+
+  selected_user=$(printf "an\nroot\ni'll type myself\n" | fzf --prompt="Select user (default an): " --height=10)
+
+  if [ -z "$selected_user" ]; then
+    echo "No user selected."
+    return 1
+  fi
+
+  if [ "$selected_user" = "i'll type myself" ]; then
+    read -e -p "Enter username: " username
+    [ -z "$username" ] && return 1
+  else
+    username="$selected_user"
+  fi
+
+  echo "Connecting to $username@$ip..."
+  ssh -C -o TCPKeepAlive=yes -o ServerAliveInterval=60 "$username"@"$ip"
+}

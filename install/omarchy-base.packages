@@ -1,11 +1,10 @@
 # Omarchy core package list installed via install/packaging/base.sh
 # This file is also used by the ISO builder when determining needs
 
-1password-beta
-1password-cli
-aether
+7zip
 alacritty
 alsa-utils
+aria2
 asdcontrol
 avahi
 bash-completion
@@ -14,6 +13,7 @@ bluetui
 bolt
 brightnessctl
 btop
+chafa
 chromium
 clang
 cups
@@ -81,6 +81,10 @@ mise
 mpv
 nautilus
 nautilus-python
+ncdu
+nmap
+nodejs
+nwg-displays
 gnome-disk-utility
 noto-fonts
 noto-fonts-cjk
@@ -88,17 +92,16 @@ noto-fonts-emoji
 nss-mdns
 nvim
 obs-studio
-obsidian
-omarchy-nvim
 omarchy-walker
+otf-geist-mono-nerd
 pamixer
-pinta
 playerctl
 plocate
 plymouth
 polkit-gnome
 postgresql-libs
 power-profiles-daemon
+pyenv
 python-gobject
 python-poetry-core
 python-terminaltexteffects
@@ -108,21 +111,19 @@ ruby
 rust
 satty
 sddm
-signal-desktop
 slurp
-spotify
 starship
 sushi
 swaybg
 swayosd
 system-config-printer
+tailscale
 tldr
 tree-sitter-cli
 tmux
 tobi-try
 ttf-ia-writer
 ttf-jetbrains-mono-nerd
-typora
 tzupdate
 ufw
 ufw-docker
@@ -140,7 +141,6 @@ xdg-desktop-portal-gtk
 xdg-desktop-portal-hyprland
 xdg-terminal-exec
 xmlstarlet
-xournalpp
 yaru-icon-theme
 yay
 zoxide

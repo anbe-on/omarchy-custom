@@ -1,0 +1,43 @@
+# This function uses fd to find image files and fzf to preview them with chafa
+fdi() {
+    fd --type f --regex ".*\.(jpg|jpeg|png|gif|bmp|svg|tga)$" \
+    | fzf --preview "chafa --fit-width --animate=off {}" \
+          --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up'
+}
+
+# Function to find and preview image files with sixel graphics
+fsi() {
+    fd --type f --regex ".*\.(jpg|jpeg|png|gif|bmp|svg|tga)$" \
+    | fzf --preview "img2sixel --width=1100 --height=800 {}" \
+          --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up'
+}
+
+# Function to find and preview all files with detailed information
+fdf() {
+    fd --type f --hidden --no-ignore \
+    | fzf --preview "file --brief {} && \
+                    stat --printf=\" %n %F\n %u %U\n Modified: %y\n Created: %w\n Size: %s bytes\n \" {} && \
+                    bat --color=always --style=header,grid --line-range :300 --wrap=auto {} && \
+                    chafa --fit-width --animate=off {} && \
+                    unzip -p {} | sed -e 's/<[^>]\{1,\}>//g && s/[^[:print:]]\{1,\}//g' " \
+          --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
+          --preview-window=wrap
+}
+
+# Live grep with ripgrep and preview
+fgf() {
+    local RG_PREFIX="rg --column --line-number --no-heading --color=always --smart-case"
+    local INITIAL_QUERY="${*:-}"
+
+    # Fallback to a harmless default pattern if INITIAL_QUERY or {q} is empty
+    FZF_DEFAULT_COMMAND="$RG_PREFIX . " \
+    fzf --bind "change:reload:($RG_PREFIX {q} || true)" \
+        --ansi \
+        --disabled \
+        --query "$INITIAL_QUERY" \
+        --preview 'bat --style=header,grid --color=always --highlight-line {2} {1}' \
+        --preview-window 'up:wrap,60%,border-bottom,+{2}+3/3,~3' \
+        --delimiter : \
+        --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
+    | awk -F: '{print $1}'
+}
