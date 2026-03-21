@@ -5,12 +5,10 @@
 alacritty
 alsa-utils
 aria2
-asdcontrol
 avahi
 bash-completion
 bat
 bluetui
-bolt
 brightnessctl
 btop
 chafa
@@ -23,9 +21,7 @@ cups-pdf
 docker
 docker-buildx
 docker-compose
-dotnet-runtime-9.0
 dust
-evince
 exfatprogs
 expac
 eza
@@ -61,7 +57,6 @@ inetutils
 inxi
 iwd
 jq
-kdenlive
 kernel-modules-hook
 kvantum-qt5
 lazydocker
@@ -121,7 +116,6 @@ tailscale
 tldr
 tree-sitter-cli
 tmux
-tobi-try
 ttf-ia-writer
 ttf-jetbrains-mono-nerd
 tzupdate
