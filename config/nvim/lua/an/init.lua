@@ -17,6 +17,19 @@ function Insert_current_date()
 end
 vim.cmd([[command! Date lua Insert_current_date()]])
 
+-- Fix forward OSC 52 clipboard sequences
+vim.g.clipboard = {
+  name = 'OSC 52',
+  copy = {
+    ['+'] = require('vim.ui.clipboard.osc52').copy('+'),
+    ['*'] = require('vim.ui.clipboard.osc52').copy('*'),
+  },
+  paste = {
+    ['+'] = require('vim.ui.clipboard.osc52').paste('+'),
+    ['*'] = require('vim.ui.clipboard.osc52').paste('*'),
+  },
+}
+
 -- Paste from clipboard + Vertical Diff
 vim.keymap.set("n", "<leader>dvs", function() DiffClipboard() end, { noremap = true, silent = true, desc = "Diff with clipboard" })
 function DiffClipboard()

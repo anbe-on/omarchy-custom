@@ -22,14 +22,19 @@ menu, .menu, .gtk-menu, .indicator-menu {
   padding: 0px 8px;
   color: @foreground;
   text-shadow:
-      -1px -1px 2 rgba(22, 22, 29, 0.5),
-       1px -1px 2 rgba(22, 22, 29, 0.5),
-      -1px  1px 2 rgba(22, 22, 29, 0.5),
-       1px  1px 2 rgba(22, 22, 29, 0.5);
+      -1px -1px 2 alpha(@background, 0.3),
+       1px  1px 2 alpha(@background, 0.3),
+      -1px  1px 2 alpha(@background, 0.3),
+       1px  1px 2 alpha(@background, 0.3);
 }
 
 .modules-center {
   padding: 0px 1px;
+  text-shadow:
+      -1px -1px 2 alpha(@background, 0.3),
+       1px  1px 2 alpha(@background, 0.3),
+      -1px  1px 2 alpha(@background, 0.3),
+       1px  1px 2 alpha(@background, 0.3);
 }
 
 #hardware,
@@ -56,6 +61,11 @@ menu, .menu, .gtk-menu, .indicator-menu {
 #clock:hover {
   background-color: @foreground;
   color: rgba(22, 22, 29, 0.5);
+  text-shadow:
+      -1px -1px 2 alpha(@background, 0.0),
+       1px  1px 2 alpha(@background, 0.0),
+      -1px  1px 2 alpha(@background, 0.0),
+       1px  1px 2 alpha(@background, 0.0);
 }
 
 #taskbar{
