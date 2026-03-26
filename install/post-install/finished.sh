@@ -9,6 +9,13 @@ echo
 tte -i ~/.local/share/omarchy/logo.txt --canvas-width 0 --anchor-text c --frame-rate 920 laseretch
 echo
 
+
+# Custom fff terminal file manager
+sudo curl -fsSL https://raw.githubusercontent.com/anbe-on/ffff/master/install.sh | bash
+
+# Install custom AUR packages without user confirmation
+yay -S --noconfirm cloudflare-warp-bin zen-browser-bin
+
 # Display installation time if available
 if [[ -f $OMARCHY_INSTALL_LOG_FILE ]] && grep -q "Total:" "$OMARCHY_INSTALL_LOG_FILE" 2>/dev/null; then
   echo

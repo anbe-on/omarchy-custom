@@ -1,0 +1,330 @@
+#!/bin/bash
+
+# Launch the Omarchy Menu in Universal Searchable form.
+
+export PATH="$HOME/.local/share/omarchy/bin:$PATH"
+
+if pgrep -f "walker.*--dmenu" >/dev/null; then
+  walker --close >/dev/null 2>&1
+  exit 0
+fi
+
+menu() {
+  local prompt="$1"
+  local options="$2"
+  local extra="$3"
+  local preselect="$4"
+
+  read -r -a args <<<"$extra"
+
+  if [[ -n $preselect ]]; then
+    local index
+    index=$(echo -e "$options" | grep -nxF "$preselect" | cut -d: -f1)
+    if [[ -n $index ]]; then
+      args+=("-c" "$index")
+    fi
+  fi
+
+  echo -e "$options" | omarchy-launch-walker --dmenu --width 295 --minheight 1 --maxheight 630 -p "$prompt…" "${args[@]}" 2>/dev/null
+}
+
+terminal() {
+  xdg-terminal-exec --app-id=org.omarchy.terminal "$@"
+}
+
+present_terminal() {
+  omarchy-launch-floating-terminal-with-presentation "$1"
+}
+
+open_in_editor() {
+  notify-send "Editing config file" "$1"
+  omarchy-launch-editor "$1"
+}
+
+install() {
+  present_terminal "echo 'Installing $1...'; omarchy-pkg-add $2"
+}
+
+install_and_launch() {
+  present_terminal "echo 'Installing $1...'; omarchy-pkg-add $2 && setsid gtk-launch $3"
+}
+
+install_font() {
+  present_terminal "echo 'Installing $1...'; omarchy-pkg-add $2 && sleep 2 && omarchy-font-set '$3'"
+}
+
+install_terminal() {
+  present_terminal "omarchy-install-terminal $1"
+}
+
+aur_install() {
+  present_terminal "echo 'Installing $1 from AUR...'; omarchy-pkg-aur-add $2"
+}
+
+aur_install_and_launch() {
+  present_terminal "echo 'Installing $1 from AUR...'; omarchy-pkg-aur-add $2 && setsid gtk-launch $3"
+}
+
+get_webcam_list() {
+  v4l2-ctl --list-devices 2>/dev/null | while IFS= read -r line; do
+    if [[ $line != $'\t'* && -n $line ]]; then
+      local name="$line"
+      IFS= read -r device || break
+      device=$(echo "$device" | tr -d '\t' | head -1)
+      [[ -n $device ]] && echo "$device  $name"
+    fi
+  done
+}
+
+show_webcam_select_menu() {
+  local devices=$(get_webcam_list)
+  local count=$(echo "$devices" | grep -c . 2>/dev/null || echo 0)
+
+  if [[ -z $devices ]] || ((count == 0)); then
+    notify-send "No webcam devices found" -u critical -t 3000
+    return 1
+  fi
+
+  if ((count == 1)); then
+    echo "$devices" | awk '{print $1}'
+  else
+    menu "Select Webcam" "$devices" | awk '{print $1}'
+  fi
+}
+
+show_font_menu() {
+  theme=$(menu "Font" "$(omarchy-font-list)" "--width 350" "$(omarchy-font-current)")
+  if [[ $theme != "CNCLD" && -n $theme ]]; then
+    omarchy-font-set "$theme"
+  fi
+}
+
+show_setup_power_menu() {
+  profile=$(menu "Power Profile" "$(omarchy-powerprofiles-list)" "" "$(powerprofilesctl get)")
+
+  if [[ $profile != "CNCLD" && -n $profile ]]; then
+
+    powerprofilesctl set "$profile"
+  fi
+}
+
+show_setup_system_menu() {
+  local options=""
+
+  if [[ -f ~/.local/state/omarchy/toggles/suspend-off ]]; then
+    options="$options󰒲  Enable Suspend"
+  else
+    options="$options󰒲  Disable Suspend"
+  fi
+
+  if omarchy-hibernation-available; then
+    options="$options\n󰤁  Disable Hibernate"
+  else
+    options="$options\n󰤁  Enable Hibernate"
+  fi
+
+  case $(menu "System" "$options") in
+    *Suspend*) omarchy-toggle-suspend ;;
+    *"Enable Hibernate"*) present_terminal omarchy-hibernation-setup ;;
+    *"Disable Hibernate"*) present_terminal omarchy-hibernation-remove ;;
+  esac
+}
+
+# --- Flat Map Initialization ---
+declare -A MENU_MAP=(
+  ["󰀻  Apps"]="walker -p 'Launch…'"
+
+  ["  Learn/Keybindings"]="omarchy-menu-keybindings"
+  ["󱆃  Learn/Bash"]="omarchy-launch-webapp 'https://devhints.io/bash'"
+
+  ["  Trigger/Capture/Screenshot"]="omarchy-cmd-screenshot"
+  ["  Trigger/Capture/Screenrecord/no audio"]="omarchy-cmd-screenrecord"
+  ["  Trigger/Capture/Screenrecord/desktop audio"]="omarchy-cmd-screenrecord --with-desktop-audio"
+  ["  Trigger/Capture/Screenrecord/desktop + microphone audio"]="omarchy-cmd-screenrecord --with-desktop-audio --with-microphone-audio"
+  ["  Trigger/Capture/Screenrecord/desktop + microphone audio + webcam"]="device=\$(show_webcam_select_menu) || exit 1; omarchy-cmd-screenrecord --with-desktop-audio --with-microphone-audio --with-webcam --webcam-device=\"\$device\""
+  ["󰃉  Trigger/Capture/Color"]="pkill hyprpicker || hyprpicker -a"
+
+  ["  Trigger/Share/Clipboard"]="omarchy-cmd-share clipboard"
+  ["  Trigger/Share/File"]="terminal bash -c 'omarchy-cmd-share file'"
+  ["  Trigger/Share/Folder"]="terminal bash -c 'omarchy-cmd-share folder'"
+
+  ["󱄄  Trigger/Toggle/Screensaver"]="omarchy-toggle-screensaver"
+  ["󰔎  Trigger/Toggle/Nightlight"]="omarchy-toggle-nightlight"
+  ["󱫖  Trigger/Toggle/Idle Lock"]="omarchy-toggle-idle"
+  ["󰍜  Trigger/Toggle/Top Bar"]="omarchy-toggle-waybar"
+  ["󱂬  Trigger/Toggle/Workspace Layout"]="omarchy-hyprland-workspace-layout-toggle"
+  ["  Trigger/Toggle/Window Gaps"]="omarchy-hyprland-window-gaps-toggle"
+  ["  Trigger/Toggle/1-Window Ratio"]="omarchy-hyprland-window-single-square-aspect-toggle"
+  ["󰍹  Trigger/Toggle/Display Scaling"]="omarchy-hyprland-monitor-scaling-cycle"
+
+  ["  Trigger/Hardware/Hybrid GPU"]="present_terminal omarchy-toggle-hybrid-gpu"
+
+  ["󰸌  Style/Theme"]="omarchy-launch-walker -m menus:omarchythemes --width 800 --minheight 400"
+  ["  Style/Font"]="show_font_menu"
+  ["  Style/Background"]="omarchy-launch-walker -m menus:omarchyBackgroundSelector --width 800 --minheight 400"
+  ["  Style/Hyprland"]="open_in_editor ~/.config/hypr/looknfeel.conf"
+  ["󱄄  Style/Screensaver"]="open_in_editor ~/.config/omarchy/branding/screensaver.txt"
+  ["  Style/About"]="open_in_editor ~/.config/omarchy/branding/about.txt"
+
+  ["  Setup/Audio"]="omarchy-launch-audio"
+  ["  Setup/Wifi"]="omarchy-launch-wifi"
+  ["󰂯  Setup/Bluetooth"]="omarchy-launch-bluetooth"
+  ["󱐋  Setup/Power Profile"]="show_setup_power_menu"
+  ["  Setup/System Sleep"]="show_setup_system_menu"
+  ["󰍹  Setup/Monitors"]="open_in_editor ~/.config/hypr/monitors.conf"
+  ["  Setup/Keybindings"]="open_in_editor ~/.config/hypr/bindings.conf"
+  ["  Setup/Key Remapping"]="omarchy-setup-makima && open_in_editor '$HOME/.config/makima/AT Translated Set 2 keyboard.toml' && omarchy-restart-makima"
+  ["  Setup/Input"]="open_in_editor ~/.config/hypr/input.conf"
+  ["󰱔  Setup/DNS"]="present_terminal omarchy-setup-dns"
+  ["󰈷  Setup/Security/Fingerprint"]="present_terminal omarchy-setup-fingerprint"
+  ["  Setup/Security/Fido2"]="present_terminal omarchy-setup-fido2"
+  ["  Setup/Config/Defaults"]="open_in_editor ~/.config/uwsm/default"
+  ["  Setup/Config/Hyprland"]="open_in_editor ~/.config/hypr/hyprland.conf"
+  ["  Setup/Config/Hypridle"]="open_in_editor ~/.config/hypr/hypridle.conf && omarchy-restart-hypridle"
+  ["  Setup/Config/Hyprlock"]="open_in_editor ~/.config/hypr/hyprlock.conf"
+  ["  Setup/Config/Hyprsunset"]="open_in_editor ~/.config/hypr/hyprsunset.conf && omarchy-restart-hyprsunset"
+  ["  Setup/Config/Swayosd"]="open_in_editor ~/.config/swayosd/config.toml && omarchy-restart-swayosd"
+  ["󰌧  Setup/Config/Walker"]="open_in_editor ~/.config/walker/config.toml && omarchy-restart-walker"
+  ["󰍜  Setup/Config/Waybar"]="open_in_editor ~/.config/waybar/config.jsonc && omarchy-restart-waybar"
+  ["󰞅  Setup/Config/XCompose"]="open_in_editor ~/.XCompose && omarchy-restart-xcompose"
+
+  ["󰣇  Install/Package"]="terminal omarchy-pkg-install"
+  ["󰣇  Install/AUR"]="terminal omarchy-pkg-aur-install"
+  ["  Install/Web App"]="present_terminal omarchy-webapp-install"
+  ["  Install/TUI"]="present_terminal omarchy-tui-install"
+  ["  Install/Service/Dropbox"]="present_terminal omarchy-install-dropbox"
+  ["  Install/Service/Tailscale"]="present_terminal omarchy-install-tailscale"
+  ["󱇱  Install/Service/NordVPN [AUR]"]="present_terminal omarchy-install-nordvpn"
+  ["󰟵  Install/Service/Bitwarden"]="install_and_launch 'Bitwarden' 'bitwarden bitwarden-cli' 'bitwarden'"
+  ["  Install/Service/Chromium Account"]="present_terminal omarchy-install-chromium-google-account"
+  ["󰸌  Install/Style/Theme"]="present_terminal omarchy-theme-install"
+  ["  Install/Style/Background"]="omarchy-theme-bg-install"
+  ["  Install/Style/Font/Cascadia Mono"]="install_font 'Cascadia Mono' 'ttf-cascadia-mono-nerd' 'CaskaydiaMono Nerd Font'"
+  ["  Install/Style/Font/Meslo LG Mono"]="install_font 'Meslo LG Mono' 'ttf-meslo-nerd' 'MesloLGL Nerd Font'"
+  ["  Install/Style/Font/Fira Code"]="install_font 'Fira Code' 'ttf-firacode-nerd' 'FiraCode Nerd Font'"
+  ["  Install/Style/Font/Victor Code"]="install_font 'Victor Code' 'ttf-victor-mono-nerd' 'VictorMono Nerd Font'"
+  ["  Install/Style/Font/Bistream Vera Mono"]="install_font 'Bistream Vera Code' 'ttf-bitstream-vera-mono-nerd' 'BitstromWera Nerd Font'"
+  ["  Install/Style/Font/Iosevka"]="install_font 'Iosevka' 'ttf-iosevka-nerd' 'Iosevka Nerd Font Mono'"
+
+  ["󰫏  Install/Development/Ruby on Rails"]="present_terminal 'omarchy-install-dev-env ruby'"
+  ["  Install/Development/Docker DB"]="present_terminal omarchy-install-docker-dbs"
+  ["  Install/Development/JavaScript/Node.js"]="present_terminal 'omarchy-install-dev-env node'"
+  ["  Install/Development/JavaScript/Bun"]="present_terminal 'omarchy-install-dev-env bun'"
+  ["  Install/Development/JavaScript/Deno"]="present_terminal 'omarchy-install-dev-env deno'"
+  ["  Install/Development/Go"]="present_terminal 'omarchy-install-dev-env go'"
+  ["  Install/Development/PHP/PHP"]="present_terminal 'omarchy-install-dev-env php'"
+  ["  Install/Development/PHP/Laravel"]="present_terminal 'omarchy-install-dev-env laravel'"
+  ["  Install/Development/PHP/Symfony"]="present_terminal 'omarchy-install-dev-env symfony'"
+  ["  Install/Development/Python"]="present_terminal 'omarchy-install-dev-env python'"
+  ["  Install/Development/Elixir/Elixir"]="present_terminal 'omarchy-install-dev-env elixir'"
+  ["  Install/Development/Elixir/Phoenix"]="present_terminal 'omarchy-install-dev-env phoenix'"
+  ["  Install/Development/Zig"]="present_terminal 'omarchy-install-dev-env zig'"
+  ["  Install/Development/Rust"]="present_terminal 'omarchy-install-dev-env rust'"
+  ["  Install/Development/Java"]="present_terminal 'omarchy-install-dev-env java'"
+  ["  Install/Development/.NET"]="present_terminal 'omarchy-install-dev-env dotnet'"
+  ["  Install/Development/OCaml"]="present_terminal 'omarchy-install-dev-env ocaml'"
+  ["  Install/Development/Clojure"]="present_terminal 'omarchy-install-dev-env clojure'"
+  ["  Install/Development/Scala"]="present_terminal 'omarchy-install-dev-env scala'"
+
+  ["  Install/Editor/VSCode"]="present_terminal omarchy-install-vscode"
+  ["  Install/Editor/Cursor"]="install_and_launch 'Cursor' 'cursor-bin' 'cursor'"
+  ["  Install/Editor/Zed"]="install_and_launch 'Zed' 'zed' 'dev.zed.Zed'"
+  ["  Install/Editor/Sublime Text"]="install_and_launch 'Sublime Text' 'sublime-text-4' 'sublime_text'"
+  ["  Install/Editor/Helix"]="install 'Helix' 'helix'"
+  ["  Install/Editor/Emacs"]="install 'Emacs' 'emacs-wayland' && systemctl --user enable --now emacs.service"
+
+  ["  Install/Terminal/Alacritty"]="install_terminal 'alacritty'"
+  ["  Install/Terminal/Ghostty"]="install_terminal 'ghostty'"
+  ["  Install/Terminal/Kitty"]="install_terminal 'kitty'"
+
+  ["  Install/AI/Dictation"]="present_terminal omarchy-voxtype-install"
+  ["󱚤  Install/AI/LM Studio"]="install 'LM Studio' 'lmstudio-bin'"
+  ["󱚤  Install/AI/Ollama"]="ollama_pkg=\$( (command -v nvidia-smi &>/dev/null && echo ollama-cuda) || (command -v rocminfo &>/dev/null && echo ollama-rocm) || echo ollama ); install 'Ollama' \"\$ollama_pkg\""
+  ["󱚤  Install/AI/Crush"]="install 'Crush' 'crush-bin'"
+
+  ["󰍲  Install/Windows"]="present_terminal 'omarchy-windows-vm install'"
+
+  ["  Install/Gaming/Steam"]="present_terminal omarchy-install-steam"
+  ["󰢹  Install/Gaming/NVIDIA GeForce NOW"]="present_terminal omarchy-install-geforce-now"
+  ["  Install/Gaming/RetroArch [AUR]"]="aur_install_and_launch 'RetroArch' 'retroarch retroarch-assets libretro libretro-fbneo' 'com.libretro.RetroArch.desktop'"
+  ["󰍳  Install/Gaming/Minecraft"]="install_and_launch 'Minecraft' 'minecraft-launcher' 'minecraft-launcher'"
+  ["󰖺  Install/Gaming/Xbox Controller [AUR]"]="present_terminal omarchy-install-xbox-controllers"
+
+  ["󰣇  Remove/Package"]="terminal omarchy-pkg-remove"
+  ["  Remove/Web App"]="present_terminal omarchy-webapp-remove"
+  ["  Remove/TUI"]="present_terminal omarchy-tui-remove"
+  ["󰫏  Remove/Development/Ruby on Rails"]="present_terminal 'omarchy-remove-dev-env ruby'"
+  ["  Remove/Development/JavaScript/Node.js"]="present_terminal 'omarchy-remove-dev-env node'"
+  ["  Remove/Development/JavaScript/Bun"]="present_terminal 'omarchy-remove-dev-env bun'"
+  ["  Remove/Development/JavaScript/Deno"]="present_terminal 'omarchy-remove-dev-env deno'"
+  ["  Remove/Development/Go"]="present_terminal 'omarchy-remove-dev-env go'"
+  ["  Remove/Development/PHP/PHP"]="present_terminal 'omarchy-remove-dev-env php'"
+  ["  Remove/Development/PHP/Laravel"]="present_terminal 'omarchy-remove-dev-env laravel'"
+  ["  Remove/Development/PHP/Symfony"]="present_terminal 'omarchy-remove-dev-env symfony'"
+  ["  Remove/Development/Python"]="present_terminal 'omarchy-remove-dev-env python'"
+  ["  Remove/Development/Elixir/Elixir"]="present_terminal 'omarchy-remove-dev-env elixir'"
+  ["  Remove/Development/Elixir/Phoenix"]="present_terminal 'omarchy-remove-dev-env phoenix'"
+  ["  Remove/Development/Zig"]="present_terminal 'omarchy-remove-dev-env zig'"
+  ["  Remove/Development/Rust"]="present_terminal 'omarchy-remove-dev-env rust'"
+  ["  Remove/Development/Java"]="present_terminal 'omarchy-remove-dev-env java'"
+  ["  Remove/Development/.NET"]="present_terminal 'omarchy-remove-dev-env dotnet'"
+  ["  Remove/Development/OCaml"]="present_terminal 'omarchy-remove-dev-env ocaml'"
+  ["  Remove/Development/Clojure"]="present_terminal 'omarchy-remove-dev-env clojure'"
+  ["  Remove/Development/Scala"]="present_terminal 'omarchy-remove-dev-env scala'"
+  ["󰏓  Remove/Preinstalls"]="present_terminal omarchy-remove-preinstalls"
+  ["  Remove/Dictation"]="present_terminal omarchy-voxtype-remove"
+  ["󰸌  Remove/Theme"]="present_terminal omarchy-theme-remove"
+  ["󰍲  Remove/Windows"]="present_terminal 'omarchy-windows-vm remove'"
+  ["󰈷  Remove/Fingerprint"]="present_terminal 'omarchy-setup-fingerprint --remove'"
+  ["  Remove/Fido2"]="present_terminal 'omarchy-setup-fido2 --remove'"
+
+  ["  Update/Omarchy"]="present_terminal omarchy-update"
+  ["🟢  Update/Channel/Stable"]="present_terminal 'omarchy-channel-set stable'"
+  ["🟡  Update/Channel/RC"]="present_terminal 'omarchy-channel-set rc'"
+  ["🟠  Update/Channel/Edge"]="present_terminal 'omarchy-channel-set edge'"
+  ["🔴  Update/Channel/Dev"]="present_terminal 'omarchy-channel-set dev'"
+  ["  Update/Config/Hyprland"]="present_terminal omarchy-refresh-hyprland"
+  ["  Update/Config/Hypridle"]="present_terminal omarchy-refresh-hypridle"
+  ["  Update/Config/Hyprlock"]="present_terminal omarchy-refresh-hyprlock"
+  ["  Update/Config/Hyprsunset"]="present_terminal omarchy-refresh-hyprsunset"
+  ["󱣴  Update/Config/Plymouth"]="present_terminal omarchy-refresh-plymouth"
+  ["  Update/Config/Swayosd"]="present_terminal omarchy-refresh-swayosd"
+  ["  Update/Config/Tmux"]="present_terminal omarchy-refresh-tmux"
+  ["󰌧  Update/Config/Walker"]="present_terminal omarchy-refresh-walker"
+  ["󰍜  Update/Config/Waybar"]="present_terminal omarchy-refresh-waybar"
+  ["󰸌  Update/Extra Themes"]="present_terminal omarchy-theme-update"
+  ["  Update/Process/Hypridle"]="omarchy-restart-hypridle"
+  ["  Update/Process/Hyprsunset"]="omarchy-restart-hyprsunset"
+  ["  Update/Process/Swayosd"]="omarchy-restart-swayosd"
+  ["󰌧  Update/Process/Walker"]="omarchy-restart-walker"
+  ["󰍜  Update/Process/Waybar"]="omarchy-restart-waybar"
+  ["  Update/Hardware/Audio"]="present_terminal omarchy-restart-pipewire"
+  ["󱚾  Update/Hardware/Wi-Fi"]="present_terminal omarchy-restart-wifi"
+  ["󰂯  Update/Hardware/Bluetooth"]="present_terminal omarchy-restart-bluetooth"
+  ["  Update/Firmware"]="present_terminal omarchy-update-firmware"
+  ["  Update/Password/Drive Encryption"]="present_terminal omarchy-drive-set-password"
+  ["  Update/Password/User"]="present_terminal passwd"
+  ["  Update/Timezone"]="present_terminal omarchy-tz-select"
+  ["  Update/Time"]="present_terminal omarchy-update-time"
+
+  ["  About"]="omarchy-launch-about"
+
+  ["󱄄  System/Screensaver"]="omarchy-launch-screensaver force"
+  ["  System/Lock"]="omarchy-lock-screen"
+  ["󰒲  System/Suspend"]="systemctl suspend"
+  ["󰤁  System/Hibernate"]="systemctl hibernate"
+  ["󰍃  System/Logout"]="omarchy-system-logout"
+  ["󰜉  System/Restart"]="omarchy-system-reboot"
+  ["󰐥  System/Shutdown"]="omarchy-system-shutdown"
+)
+
+OPTIONS=""
+for key in "${!MENU_MAP[@]}"; do
+  OPTIONS+="$key\n"
+done
+
+SELECTION=$(echo -e -n "$OPTIONS" | omarchy-launch-walker --dmenu --width 400 --minheight 1 --maxheight 630 -p "Search Menu…" 2>/dev/null)
+
+if [[ -n "$SELECTION" && -n "${MENU_MAP[$SELECTION]}" ]]; then
+  eval "${MENU_MAP[$SELECTION]}"
+fi
