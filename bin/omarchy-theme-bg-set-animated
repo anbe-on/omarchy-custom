@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Seek .gif files in Pictures and current themes as animated background
+
+CURRENT_BACKGROUND_LINK="$HOME/.config/omarchy/current/background"
+
+if pgrep -x "awww-daemon" > /dev/null; then
+  DAEMON_ACTION="Stop awww-daemon"
+else
+  DAEMON_ACTION="Start awww-daemon"
+fi
+
+ACTION=$(echo -e "Select GIF Wallpaper\n$DAEMON_ACTION" | fzf --prompt="Wallpaper Menu > ")
+
+case "$ACTION" in
+  "Select GIF Wallpaper")
+    selected_gif=$(fd --type f --regex ".*\.gif$" \
+      "$HOME/Pictures" "$HOME/.local/share/omarchy/themes" 2>/dev/null \
+      | fzf --preview 'chafa --size=$((FZF_PREVIEW_COLUMNS-3))x$((FZF_PREVIEW_LINES-2)) --animate=off {}' \
+            --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
+            --prompt="Select GIF > ")
+
+    if [[ -n "$selected_gif" ]]; then
+      if ! pgrep -x "awww-daemon" > /dev/null; then
+        setsid uwsm-app -- awww-daemon >/dev/null 2>&1 &
+        sleep 1
+      fi
+
+      awww img "$selected_gif"
+
+      mkdir -p "$(dirname "$CURRENT_BACKGROUND_LINK")"
+      ln -sf "$selected_gif" "$CURRENT_BACKGROUND_LINK"
+    fi
+    ;;
+
+  "Start awww-daemon")
+    setsid uwsm-app -- awww-daemon >/dev/null 2>&1 &
+    ;;
+
+  "Stop awww-daemon")
+    pkill -x awww-daemon
+    ;;
+esac

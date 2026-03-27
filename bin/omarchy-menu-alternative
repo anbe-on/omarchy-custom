@@ -36,6 +36,10 @@ present_terminal() {
   omarchy-launch-floating-terminal-with-presentation "$1"
 }
 
+present_terminal_kitty() {
+  hyprctl dispatch exec "[float; size 644 300; center] kitty --class org.omarchy.terminal -e bash -c \"$1\""
+}
+
 open_in_editor() {
   notify-send "Editing config file" "$1"
   omarchy-launch-editor "$1"
@@ -199,6 +203,7 @@ declare -A MENU_MAP=(
   ["  Install/Service/Chromium Account"]="present_terminal omarchy-install-chromium-google-account"
   ["󰸌  Install/Style/Theme"]="present_terminal omarchy-theme-install"
   ["  Install/Style/Background"]="omarchy-theme-bg-install"
+  ["  Install/Style/Animated Background"]="present_terminal_kitty omarchy-theme-bg-set-animated"
   ["  Install/Style/Font/Cascadia Mono"]="install_font 'Cascadia Mono' 'ttf-cascadia-mono-nerd' 'CaskaydiaMono Nerd Font'"
   ["  Install/Style/Font/Meslo LG Mono"]="install_font 'Meslo LG Mono' 'ttf-meslo-nerd' 'MesloLGL Nerd Font'"
   ["  Install/Style/Font/Fira Code"]="install_font 'Fira Code' 'ttf-firacode-nerd' 'FiraCode Nerd Font'"
