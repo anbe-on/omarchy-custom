@@ -1,4 +1,5 @@
 run_logged $OMARCHY_INSTALL/packaging/base.sh
+run_logged $OMARCHY_INSTALL/packaging/base-custom.sh
 run_logged $OMARCHY_INSTALL/packaging/fonts.sh
 run_logged $OMARCHY_INSTALL/packaging/icons.sh
 run_logged $OMARCHY_INSTALL/packaging/webapps.sh
