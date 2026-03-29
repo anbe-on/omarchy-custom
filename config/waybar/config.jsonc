@@ -132,13 +132,13 @@
     "interval": 2,
     "format": "{usage:>2} ",
     "min-length": 3,
-    "on-click": "alacritty -e btop"
+    "on-click": "omarchy-launch-or-focus-tui btop"
   },
   "temperature": {
     "hwmon-path": "/sys/class/hwmon/hwmon3/temp1_input",
     "critical-threshold": 90,
     "format": "{temperatureC}󰔄",
-    "on-click": "alacritty -e btop",
+    "on-click": "omarchy-launch-or-focus-tui btop",
     "interval": 2
   },
   "clock": {

@@ -13,11 +13,6 @@ window#waybar,
 .modules-left, .modules-right, .modules-center {
 }
 
-menu, .menu, .gtk-menu, .indicator-menu {
-  background: rgba(22, 22, 29, 0.5);
-  color: @foreground;
-}
-
 .modules-left, .modules-right {
   padding: 0px 8px;
   color: @foreground;
@@ -60,7 +55,7 @@ menu, .menu, .gtk-menu, .indicator-menu {
 #custom-omarchy:hover,
 #clock:hover {
   background-color: @foreground;
-  color: rgba(22, 22, 29, 0.5);
+  color: @background;
   text-shadow:
       -1px -1px 2 alpha(@background, 0.0),
        1px  1px 2 alpha(@background, 0.0),
@@ -106,10 +101,12 @@ menu, .menu, .gtk-menu, .indicator-menu {
   color: #a55555;
 }
 
-tooltip {
+tooltip label{
   padding: 4px 6px;
-  background-color: @background;
+  background: @background;
+  color: @foreground;
   border-radius: 4px;
+  text-shadow: none
 }
 
 .hidden {
