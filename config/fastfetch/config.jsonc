@@ -19,7 +19,7 @@
         },
         {
             "type": "title",
-            "key": "│ {#30}{#39} u@h     {#keys}│",
+            "key": "│ {#33}{#39} u@h     {#keys}│",
             "format": "{user-name}@{host-name}"
         },
         {
@@ -58,11 +58,11 @@
             "type": "battery"
         },
         {
-            "key": "│ {#30}{icon}{#39} distro  {#keys}│{#30}",
+            "key": "│ {#37}{icon}{#39} distro  {#keys}│{#30}",
             "type": "os"
         },
         {
-            "key": "│ {#30}{#39} kernel  {#keys}│",
+            "key": "│ {#37}{#39} kernel  {#keys}│",
             "type": "kernel"
         },
         {
@@ -160,15 +160,6 @@
           "key": "│ {#34}{icon}{#39} os age  {#keys}│",
           "folders": "/",
           "format": "{create-time:10} {#2}[{days} days]"
-        },
-        {
-            "key": "├───────────┤",
-            "type": "custom"
-        },
-        {
-            "key": "│ {#39} colors  {#keys}│",
-            "type": "colors",
-            "symbol": "circle"
         },
         {
             "key": "╰───────────╯",

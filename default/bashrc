@@ -14,3 +14,21 @@ nvimc() {
     nvim .
     popd
 }
+
+# fff file manager
+f() {
+    local prev_dir="$PWD"
+    local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/fff"
+    fff "$@"
+    local new_dir
+    new_dir="$(cat "$cache_dir/.fff_d")"
+    if [[ "$new_dir" != "$prev_dir" ]]; then
+        cd "$new_dir"
+        # Save current history to file
+        history -a
+        history -s "cd $PWD"
+        # Append 'cd <path>' command to history file
+        shopt -s histappend
+        history -w "$HISTFILE"
+    fi
+}

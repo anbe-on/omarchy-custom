@@ -17,19 +17,19 @@ window#waybar,
   padding: 0px 8px;
   color: @foreground;
   text-shadow:
-      -1px -1px 2 alpha(@background, 0.3),
-       1px  1px 2 alpha(@background, 0.3),
-      -1px  1px 2 alpha(@background, 0.3),
-       1px  1px 2 alpha(@background, 0.3);
+      -1px -1px 2px alpha(@background, 0.8),
+       1px  1px 2px alpha(@background, 0.8),
+      -1px  1px 2px alpha(@background, 0.8),
+       1px -1px 2px alpha(@background, 0.8);
 }
 
 .modules-center {
   padding: 0px 1px;
   text-shadow:
-      -1px -1px 2 alpha(@background, 0.3),
-       1px  1px 2 alpha(@background, 0.3),
-      -1px  1px 2 alpha(@background, 0.3),
-       1px  1px 2 alpha(@background, 0.3);
+      -1px -1px 2px alpha(@background, 0.8),
+       1px  1px 2px alpha(@background, 0.8),
+      -1px  1px 2px alpha(@background, 0.8),
+       1px -1px 2px alpha(@background, 0.8);
 }
 
 #hardware,
@@ -57,16 +57,31 @@ window#waybar,
   background-color: @foreground;
   color: @background;
   text-shadow:
-      -1px -1px 2 alpha(@background, 0.0),
-       1px  1px 2 alpha(@background, 0.0),
-      -1px  1px 2 alpha(@background, 0.0),
-       1px  1px 2 alpha(@background, 0.0);
+      -1px -1px 2px alpha(@background, 0.1),
+       1px  1px 2px alpha(@background, 0.1),
+      -1px  1px 2px alpha(@background, 0.1),
+       1px -1px 2px alpha(@background, 0.1);
 }
 
-#taskbar{
+#taskbar {
   min-width: 4px;
   margin: 0 2px;
   padding: 0 0px;
+}
+
+#taskbar button {
+  background: transparent;
+  color: @foreground;
+  padding: 0px 8px;
+  transition: background-color 0.2s ease;
+}
+
+#taskbar button image {
+  -gtk-icon-shadow:
+      -1px -1px 2px alpha(@background, 0.8),
+       1px  1px 2px alpha(@background, 0.8),
+      -1px  1px 2px alpha(@background, 0.8),
+       1px -1px 2px alpha(@background, 0.8);
 }
 
 #tray {
@@ -101,12 +116,16 @@ window#waybar,
   color: #a55555;
 }
 
-tooltip label{
-  padding: 4px 6px;
+tooltip {
   background: @background;
-  color: @foreground;
+  border: none;
   border-radius: 4px;
-  text-shadow: none
+}
+
+tooltip label {
+  padding: 4px 6px;
+  color: @foreground;
+  text-shadow: none;
 }
 
 .hidden {
