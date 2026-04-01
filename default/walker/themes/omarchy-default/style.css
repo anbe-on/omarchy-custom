@@ -29,38 +29,66 @@ scrollbar {
   border: none;
 
   background-image:
-    linear-gradient(@border, @border), /* Top-left horizontal */
-    linear-gradient(@border, @border), /* Top-left vertical */
-    linear-gradient(@border, @border), /* Bottom-right horizontal */
-    linear-gradient(@border, @border); /* Bottom-right vertical */
+    linear-gradient(@border, @border),
+    linear-gradient(@selected-text, @selected-text),
+    linear-gradient(@border, @border),
+    linear-gradient(@border, @border);
 
   background-size:
-    30px 4px,
-    4px 50px,
-    30px 4px,
-    4px 50px;
+    8px 8px,
+    8px 8px,
+    8px 8px,
+    8px 8px;
 
   background-position:
-    top left,
+    top right,
     top left,
     bottom right,
-    bottom right;
+    bottom left;
 
   background-repeat: no-repeat;
-  filter: drop-shadow(0px 2px 4px alpha(@background, 0.4));
+
 }
 
 .preview-box {
+  background: alpha(@base, 0.70);
+  padding: 8px;
+  border: 2px solid @border;
 }
 
 .box {
 }
 
 .search-container {
-  background: @base;
-  border-radius: 4px;
+  background: alpha(@base, 0.70);
   padding: 10px;
-  box-shadow: 0px 2px 2px alpha(@background, 0.4);
+  border: none;
+
+  background-image:
+    linear-gradient(@border, @border),
+    linear-gradient(@border, @border),
+    linear-gradient(@border, @border),
+    linear-gradient(@border, @border),
+    linear-gradient(@border, @border),
+    linear-gradient(@border, @border);
+
+  background-size:
+    8px 2px,
+    2px 42px,
+    8px 2px,
+    8px 2px,
+    2px 42px,
+    8px 2px;
+
+  background-position:
+    top left,
+    top left,
+    top right,
+    bottom left,
+    top right,
+    bottom right;
+
+  background-repeat: no-repeat;
 }
 
 .input placeholder {
@@ -80,7 +108,7 @@ scrollbar {
 }
 
 .placeholder {
-  background: alpha(@base, 0.95);
+  background: alpha(@base, 0.70);
   border-radius: 4px;
   padding: 10px;
 }
@@ -89,23 +117,105 @@ scrollbar {
 }
 
 .list {
-  border-radius: 4px;
-  background: alpha(@base, 0.95);
-  box-shadow: 0px 2px 2px alpha(@background, 0.4);
+  background: alpha(@base, 0.70);
+  border: none;
+
+  background-image:
+    linear-gradient(@border, @border),
+    linear-gradient(@border, @border),
+    linear-gradient(@border, @border),
+    linear-gradient(@border, @border);
+
+  background-size:
+    4px 4px,
+    4px 4px,
+    4px 4px,
+    4px 4px;
+
+  background-position:
+    top right,
+    top left,
+    bottom right,
+    bottom left;
+
+  background-repeat: no-repeat;
 }
 
 child,
 child > * {
+  border: none;
+
+  background-image:
+    linear-gradient(@border, @border),
+    linear-gradient(@border, @border),
+    linear-gradient(@border, @border),
+    linear-gradient(@border, @border);
+
+  background-size:
+    1px 1px,
+    1px 1px,
+    1px 1px,
+    1px 1px;
+
+  background-position:
+    top right,
+    top left,
+    bottom right,
+    bottom left;
+
+  background-repeat: no-repeat;
+
 }
 
 child:hover .item-box {
 }
 
 child:selected .item-box {
+  border: none;
+
+  background-image:
+    linear-gradient(@border, @border),
+    linear-gradient(@border, @border),
+    linear-gradient(@border, @border),
+    linear-gradient(@border, @border),
+    linear-gradient(@selected-text, @selected-text),
+    linear-gradient(@border, @border),
+    linear-gradient(@base, @base),
+    linear-gradient(@border, @border),
+    linear-gradient(@border, @border),
+    linear-gradient(@border, @border),
+    linear-gradient(@border, @border);
+
+  background-size:
+    10px 2px,
+    2px 10px,
+    10px 2px,
+    2px 10px,
+    2px 10px,
+    2px 10px,
+    900px 30px,
+    10px 2px,
+    2px 10px,
+    10px 2px,
+    2px 10px;
+
+  background-position:
+    top left,
+    top left,
+    bottom left,
+    bottom left,
+    center left,
+    center left,
+    center left,
+    top right,
+    top right,
+    bottom right,
+    bottom right;
+
+  background-repeat: no-repeat;
 }
 
 child:selected .item-box * {
-  color: @selected-text;
 }
 
 .item-box {
