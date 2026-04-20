@@ -1,7 +1,8 @@
 # This function uses fd to find image files and fzf to preview them with chafa
 fdi() {
     fd --type f --regex ".*\.(jpg|jpeg|png|gif|bmp|svg|tga)$" \
-    | fzf --preview "chafa --fit-width --animate=off {}" \
+    | fzf --preview "chafa --size=80x40 --clear --fit-width --animate=off {}" \
+          --preview-window 'up:wrap,60%,border-bottom,+{2}+3/3,~3' \
           --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up'
 }
 
@@ -18,7 +19,6 @@ fdf() {
     | fzf --preview "file --brief {} && \
                     stat --printf=\" %n %F\n %u %U\n Modified: %y\n Created: %w\n Size: %s bytes\n \" {} && \
                     bat --color=always --style=header,grid --line-range :300 --wrap=auto {} && \
-                    chafa --fit-width --animate=off {} && \
                     unzip -p {} | sed -e 's/<[^>]\{1,\}>//g && s/[^[:print:]]\{1,\}//g' " \
           --bind 'ctrl-d:preview-half-page-down,ctrl-u:preview-half-page-up' \
           --preview-window=wrap

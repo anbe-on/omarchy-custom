@@ -23,9 +23,8 @@ scrollbar {
 }
 
 .box-wrapper {
-  background: transparent;
-  padding: 20px;
-  border-radius: 2px;
+  background: alpha(@base, 0.50);
+  padding: 10px;
   border: none;
 
   background-image:
@@ -47,7 +46,6 @@ scrollbar {
     bottom left;
 
   background-repeat: no-repeat;
-
 }
 
 .preview-box {
@@ -127,10 +125,10 @@ scrollbar {
     linear-gradient(@border, @border);
 
   background-size:
-    4px 4px,
-    4px 4px,
-    4px 4px,
-    4px 4px;
+    2px 2px,
+    2px 2px,
+    2px 2px,
+    2px 2px;
 
   background-position:
     top right,

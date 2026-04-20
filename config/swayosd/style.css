@@ -2,10 +2,29 @@
 
 window {
   border-radius: 0;
-  opacity: 0.97;
-  border: 2px solid @border-color;
+  border: none;
 
-  background-color: @background-color;
+  background-color: alpha(@background-color, 0.5);
+
+  background-image:
+    linear-gradient(to bottom, @border-color, @border-color),
+    linear-gradient(to bottom, @border-color, @border-color),
+    linear-gradient(to bottom, @border-color, @border-color),
+    linear-gradient(to bottom, @border-color, @border-color);
+
+  background-size:
+    2px 2px,
+    2px 2px,
+    2px 2px,
+    2px 2px;
+
+  background-position:
+    top right,
+    top left,
+    bottom right,
+    bottom left;
+
+  background-repeat: no-repeat;
 }
 
 label {

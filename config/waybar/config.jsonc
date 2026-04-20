@@ -36,7 +36,7 @@
   "hyprland/window": {
     "format": "「{title}」",
     "icon": false,
-    "tooltip-format": "{class}",
+    "tooltip-format": "{title}",
     "min-length": 10,
     "max-length": 44,
     "tooltip": true,
@@ -66,7 +66,7 @@
     "modules": ["custom/expand-icon", "tray"]
   },
   "custom/expand-icon": {
-    "format": "「󰅁",
+    "format": "「 󰅁 ",
     "tooltip": false,
     "on-scroll-up": "",
     "on-scroll-down": "",
@@ -129,7 +129,10 @@
     "tooltip-format": "{title}",
     "on-click": "activate",
     "sort-by-app-id": true,
-    "icon-size": 14
+    "icon-size": 14,
+    "app_ids-mapping": {
+      "chrome-web.whatsapp.com__-Default": "WhatsApp"
+    }
   },
   "group/hardware": {
     "orientation": "horizontal",
@@ -168,11 +171,11 @@
   "network": {
     "format-icons": ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"],
     "format": "{icon}",
-    "format-wifi": "{icon}{bandwidthUpBytes:>2}{bandwidthDownBytes:>2}",
+    "format-wifi": "{icon} {bandwidthUpBytes:>2}{bandwidthDownBytes:>2}",
     "format-ethernet": "󰈀 {bandwidthUpBytes:>2}{bandwidthDownBytes:>2}",
     "format-disconnected": "󰤮",
-    "tooltip-format-wifi": "{essid} ({frequency} GHz)\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}",
-    "tooltip-format-ethernet": "⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}",
+    "tooltip-format-wifi": "{essid} ({frequency} GHz)\n⇡{bandwidthUpBytes}  ⇣{bandwidthDownBytes}",
+    "tooltip-format-ethernet": "⇡{bandwidthUpBytes}  ⇣{bandwidthDownBytes}",
     "tooltip-format-disconnected": "Disconnected",
     "interval": 3,
     "spacing": 1,
@@ -206,7 +209,7 @@
     "on-click": "omarchy-launch-bluetooth"
   },
   "custom/screenrecording-indicator": {
-    "on-click": "omarchy-cmd-screenrecord",
+    "on-click": "omarchy-cmd-screenrecord ",
     "exec": "$OMARCHY_PATH/default/waybar/indicators/screen-recording.sh",
     "signal": 8,
     "return-type": "json"
