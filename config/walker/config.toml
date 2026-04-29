@@ -6,7 +6,7 @@ hide_action_hints = true                                                    # gl
 
 [placeholders]
 "default" = {
-  input = "cmd:sh -c \"echo $(date +'%H:%M %a %d %b') $(omarchy-battery-remaining-time) $(cat /sys/class/power_supply/BAT1/capacity) $(grep -q Charging /sys/class/power_supply/BAT1/status && echo 󰂄 || echo 󰁹) $(( $(cat /sys/devices/platform/coretemp.0/hwmon/hwmon5/temp1_input) / 1000 ))󰔄\"",
+  input = "cmd:sh -c \"echo $(date +'%H:%M %a %d %b') $(omarchy-battery-remaining-time) $(cat /sys/class/power_supply/BAT1/capacity)󰏰 $(grep -q Charging /sys/class/power_supply/BAT1/status && echo 󰂄 || echo 󰁹)\"",
   list = "No Results"
 }
 
@@ -20,6 +20,14 @@ desktopapplications = [
   { action = "pin", bind = "ctrl shift p", after = "AsyncReload" },
   { action = "unpin", bind = "ctrl shift p", after = "AsyncReload" },
   { action = "pinup", bind = "ctrl shift n", after = "AsyncReload" },
+]
+
+clipboard = [
+  { action = "copy", default = true, bind = "Return" },
+  { action = "delete", bind = "ctrl d", after = "AsyncReload" },
+  { action = "delete_all", bind = "ctrl shift d", after = "AsyncReload" },
+  { action = "toggle_image", bind = "ctrl i", after = "AsyncReload" },
+  { action = "edit", bind = "ctrl o", after = "AsyncReload" }
 ]
 
 [columns]
