@@ -171,8 +171,8 @@
   "network": {
     "format-icons": ["󰤯", "󰤟", "󰤢", "󰤥", "󰤨"],
     "format": "{icon}",
-    "format-wifi": "{icon} {bandwidthUpBytes:>2}{bandwidthDownBytes:>2}",
-    "format-ethernet": "󰈀 {bandwidthUpBytes:>2}{bandwidthDownBytes:>2}",
+    "format-wifi": "{icon} {bandwidthUpBytes:>2}{bandwidthDownBytes:>2}",
+    "format-ethernet": "󰈀 {bandwidthUpBytes:>2}{bandwidthDownBytes:>2}{",
     "format-disconnected": "󰤮",
     "tooltip-format-wifi": "{essid} ({frequency} GHz)\n⇡{bandwidthUpBytes}  ⇣{bandwidthDownBytes}",
     "tooltip-format-ethernet": "⇡{bandwidthUpBytes}  ⇣{bandwidthDownBytes}",
