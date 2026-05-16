@@ -25,7 +25,7 @@ menu() {
     fi
   fi
 
-  echo -e "$options" | omarchy-launch-walker --dmenu --width 295 --minheight 1 --maxheight 630 -p "$prompt…" "${args[@]}" 2>/dev/null
+  echo -e "$options" | omarchy-launch-walker --dmenu --width 620 --minheight 1 --maxheight 415 -p "$prompt…" "${args[@]}" 2>/dev/null
 }
 
 terminal() {
@@ -316,19 +316,16 @@ declare -A MENU_MAP=(
 
   ["󱄄  Screensaver System/"]="omarchy-launch-screensaver force"
   ["  Lock System/"]="omarchy-lock-screen"
-  ["󰒲  Suspend System/"]="systemctl suspend"
+  ["󰒲  Sleep System/"]="systemctl suspend"
   ["󰤁  Hibernate System/"]="systemctl hibernate"
   ["󰍃  Logout System/"]="omarchy-system-logout"
   ["󰜉  Restart System/"]="omarchy-system-reboot"
   ["󰐥  Shutdown System/"]="omarchy-system-shutdown"
 )
 
-OPTIONS=""
-for key in "${!MENU_MAP[@]}"; do
-  OPTIONS+="$key\n"
-done
+OPTIONS=$(printf "%s\n" "${!MENU_MAP[@]}" | sort)
 
-SELECTION=$(echo -e -n "$OPTIONS" | omarchy-launch-walker --dmenu --width 400 --minheight 1 --maxheight 620 -p "Search Menu…" 2>/dev/null)
+SELECTION=$(echo -e -n "$OPTIONS" | omarchy-launch-walker --dmenu --width 620 --minheight 1 --maxheight 415 -p "$(date +'%H:%M %a %d %b') $(omarchy-battery-remaining-time) $(cat /sys/class/power_supply/BAT1/capacity)󰏰 $(grep -q Charging /sys/class/power_supply/BAT1/status && echo 󰂄 || echo 󰁹)" 2>/dev/null)
 
 if [[ -n "$SELECTION" && -n "${MENU_MAP[$SELECTION]}" ]]; then
   eval "${MENU_MAP[$SELECTION]}"
