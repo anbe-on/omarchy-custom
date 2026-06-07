@@ -4,6 +4,7 @@ hl.bind("SUPER + RETURN", hl.dsp.exec_cmd("$terminal"), { description = "Termina
 hl.bind("SUPER + F", hl.dsp.exec_cmd("$fileManager"), { description = "File manager" })
 hl.bind("SUPER + D", hl.dsp.exec_cmd("$terminal -e lazydocker"), { description = "Lazy Docker" })
 
-require("default/hypr/bindings/media")
-require("default/hypr/bindings/tiling")
-require("default/hypr/bindings/utilities")
+local omarchy = os.getenv("HOME") .. "/.local/share/omarchy"
+dofile(omarchy .. "/default/hypr/bindings/media.lua")
+dofile(omarchy .. "/default/hypr/bindings/tiling.lua")
+dofile(omarchy .. "/default/hypr/bindings/utilities.lua")

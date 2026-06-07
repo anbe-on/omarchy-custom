@@ -24,7 +24,7 @@ hl.window_rule({
 })
 
 -- App-specific tweaks (may remove default-opacity tag)
-require("default/hypr/apps")
+dofile(os.getenv("HOME") .. "/.local/share/omarchy/default/hypr/apps.lua")
 
 -- Apply default opacity after apps have had a chance to opt out
 hl.window_rule({ match = { tag = "default-opacity" }, opacity = "0.97 0.9" })
