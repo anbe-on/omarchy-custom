@@ -1,28 +1,27 @@
-general {
-    lock_cmd = omarchy-lock-screen                         # lock screen and 1password
-    before_sleep_cmd = loginctl lock-session               # lock before suspend.
-    after_sleep_cmd = sleep 1 && hyprctl dispatch dpms on  # delay for PAM readiness, then turn on display.
-    inhibit_sleep = 3                                      # wait until screen is locked
-}
+-- Learn how to configure Hyprland: https://wiki.hyprland.org/Configuring/
 
-listener {
-    timeout = 150                                             # 2.5min
-    on-timeout = pidof hyprlock || omarchy-launch-screensaver # start screensaver (if we haven't locked already)
-}
+hl.on("hyprland.start", function()
+  hl.exec_cmd("hyprlock --immediate-render --no-fade-in")
+end)
 
-listener {
-    timeout = 151                      # 5min
-    on-timeout = loginctl lock-session # lock screen when timeout has passed
-}
+-- Use defaults Omarchy defaults (but don't edit these directly!)
+require("default/hypr/autostart")
+require("default/hypr/bindings/media")
+require("default/hypr/bindings/clipboard")
+require("default/hypr/bindings/tiling-v2")
+require("default/hypr/bindings/utilities")
+require("default/hypr/envs")
+require("default/hypr/looknfeel")
+require("default/hypr/input")
+require("default/hypr/windows")
+require(os.getenv("HOME") .. "/.config/omarchy/current/theme/hyprland")
 
-listener {
-    timeout = 330                                            # 5.5min
-    on-timeout = brightnessctl -sd '*::kbd_backlight' set 0  # save state and turn off keyboard backlight
-    on-resume = brightnessctl -rd '*::kbd_backlight'         # restore keyboard backlight
-}
+-- Change your own setup in these files (and overwrite any settings from defaults!)
+require("monitors")
+require("input")
+require("bindings")
+require("looknfeel")
+require("autostart")
 
-listener {
-    timeout = 330                                            # 5.5min
-    on-timeout = hyprctl dispatch dpms off                   # screen off when timeout has passed
-    on-resume = hyprctl dispatch dpms on && brightnessctl -r # screen on when activity is detected
-}
+-- Add any other personal Hyprland configuration below
+-- hl.window_rule({ name = "workspace-5-qemu", match = { class = "qemu" }, workspace = "5" })
