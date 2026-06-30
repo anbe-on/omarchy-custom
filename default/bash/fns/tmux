@@ -95,3 +95,77 @@ tsl() {
 
   tmux select-pane -t "${panes[0]}"
 }
+
+# Save current tmux state (sessions, windows, panes, paths, history, layout) to a timestamped snapshot
+# Usage: tsave
+tsave() {
+  tmux info &>/dev/null || { echo "No tmux server running."; return 1; }
+
+  local timestamp
+  timestamp=$(date +"%Y-%m-%d_%H-%M-%S")
+  local save_dir="$HOME/.tmux-sessions"
+  local restore_script="$save_dir/restore-${timestamp}.sh"
+  local history_dir="$save_dir/history-${timestamp}"
+
+  mkdir -p "$history_dir"
+
+  echo "#!/usr/bin/env bash" > "$restore_script"
+  echo "set -x # Enable verbose debugging to show executed tmux commands" >> "$restore_script"
+  echo "echo 'Restoring tmux snapshot from ${timestamp}'" >> "$restore_script"
+  chmod +x "$restore_script"
+
+  tmux list-sessions -F "#{session_name}" | while read -r session; do
+    echo "tmux has-session -t '$session' 2>/dev/null || tmux new-session -d -s '$session'" >> "$restore_script"
+
+    tmux list-windows -t "$session" -F "#{window_index}:#{window_name}:#{window_layout}" | while IFS=':' read -r w_idx w_name w_layout; do
+
+      echo "tmux new-window -d -t '$session:$w_idx' -n '$w_name' 2>/dev/null || tmux rename-window -t '$session:$w_idx' '$w_name'" >> "$restore_script"
+
+      local first_pane=true
+      tmux list-panes -t "$session:$w_idx" -F "#{pane_index}:#{pane_current_path}" | while IFS=':' read -r p_idx p_path; do
+
+        if [ "$first_pane" = true ]; then
+           echo "tmux send-keys -t '$session:$w_idx.$p_idx' 'cd \"$p_path\" ; clear' C-m" >> "$restore_script"
+           first_pane=false
+        else
+           echo "tmux split-window -d -t '$session:$w_idx' -c '$p_path'" >> "$restore_script"
+        fi
+
+        local hist_file="$history_dir/history_${session}_${w_idx}_${p_idx}.txt"
+        tmux capture-pane -t "$session:$w_idx.$p_idx" -J -pS - > "$hist_file"
+
+        echo "tmux send-keys -t '$session:$w_idx.$p_idx' 'cat \"$hist_file\"' C-m" >> "$restore_script"
+      done
+
+      echo "tmux select-layout -t '$session:$w_idx' '$w_layout'" >> "$restore_script"
+    done
+  done
+
+  echo "Snapshot saved: $restore_script"
+  echo "History saved: $history_dir/"
+}
+
+# Restore a tmux snapshot
+# Usage: trestore [timestamp]
+trestore() {
+  local save_dir="$HOME/.tmux-sessions"
+
+  if [[ -z $1 ]]; then
+    echo "Available snapshots in $save_dir:"
+    ls -1 "$save_dir"/restore-*.sh 2>/dev/null | sed 's/.*restore-//;s/\.sh//' || echo "No snapshots found."
+    echo ""
+    echo "Usage: trestore <timestamp>"
+    return 1
+  fi
+
+  local target="$1"
+
+  if [[ -f "$save_dir/restore-${target}.sh" ]]; then
+    target="$save_dir/restore-${target}.sh"
+  elif [[ ! -f "$target" ]]; then
+    echo "Snapshot not found: $target"
+    return 1
+  fi
+
+  bash "$target"
+}
