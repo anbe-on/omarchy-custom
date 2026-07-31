@@ -84,31 +84,103 @@ parse_keycodes() {
 # - Map numeric modifier key mask to a textual rendition
 # - Output comma-separated values that the parser can understand
 dynamic_bindings() {
-  hyprctl -j binds |
-    jq -r '.[] | {modmask, key, keycode, description, dispatcher, arg} | "\(.modmask),\(.key)@\(.keycode),\(.description),\(.dispatcher),\(.arg)"' |
-    sed -r \
-      -e 's/null//' \
-      -e 's,~/.local/share/omarchy/bin/,,' \
-      -e 's,uwsm app -- ,,' \
-      -e 's,uwsm-app -- ,,' \
-      -e 's/@0//' \
-      -e 's/,@/,code:/' \
-      -e 's/^0,/,/' \
-      -e 's/^1,/SHIFT,/' \
-      -e 's/^4,/CTRL,/' \
-      -e 's/^5,/SHIFT CTRL,/' \
-      -e 's/^8,/ALT,/' \
-      -e 's/^9,/SHIFT ALT,/' \
-      -e 's/^12,/CTRL ALT,/' \
-      -e 's/^13,/SHIFT CTRL ALT,/' \
-      -e 's/^64,/SUPER,/' \
-      -e 's/^65,/SUPER SHIFT,/' \
-      -e 's/^68,/SUPER CTRL,/' \
-      -e 's/^69,/SUPER SHIFT CTRL,/' \
-      -e 's/^72,/SUPER ALT,/' \
-      -e 's/^73,/SUPER SHIFT ALT,/' \
-      -e 's/^76,/SUPER CTRL ALT,/' \
-      -e 's/^77,/SUPER SHIFT CTRL ALT,/'
+  hyprctl -j binds 2>/dev/null | python3 -c "
+import sys, re, json
+
+def fix_json(data):
+    lines = data.split('\n')
+    for i, line in enumerate(lines):
+        match = re.match(r'^(\s*\"[^\"]+\":\s*)([^\",]+)(,?)$', line)
+        if match:
+            val = match.group(2).strip()
+            if val not in ['true', 'false', 'null'] and not re.match(r'^-?\d+\.?\d*$', val):
+                lines[i] = match.group(1) + '\"' + val.replace('\"', '\\\"') + '\"' + match.group(3)
+    return '\n'.join(lines)
+
+def shorten_path(s):
+    s = s.replace(os.path.expanduser('~/.local/share/omarchy/bin/'), '')
+    s = s.replace('uwsm app -- ', '')
+    s = s.replace('uwsm-app -- ', '')
+    return s
+
+def get_modmask(bind):
+    # In broken JSON:
+    # For bindled (special keys): modmask=True (bool), submap='0' or modifier
+    # For bind (normal binds): modmask=False (bool 0), submap has the modifier mask
+    modmask = bind.get('modmask', 0)
+    submap = bind.get('submap', '0')
+
+    # If modmask is boolean True (bindled type), the actual modifiers might be in submap
+    # but for bindled usually modmask is 0 (no modifiers) or contains the modifier
+    if isinstance(modmask, bool):
+        # For boolean modmask, try to parse submap as the modifier
+        try:
+            return int(submap)
+        except:
+            return 0
+    else:
+        # modmask is a number or numeric string
+        try:
+            return int(modmask)
+        except:
+            try:
+                return int(submap)
+            except:
+                return 0
+
+import os
+data = sys.stdin.read()
+fixed = fix_json(data)
+try:
+    binds = json.loads(fixed)
+    for b in binds:
+        # Broken JSON mapping:
+        # key is always 'false'
+        # keycode contains actual key name
+        # modmask is 'false' or actual number
+        # submap might contain modmask for some binds
+        # description is 'false' for special keys, allow_input_capture has the real desc
+        key_raw = b.get('key', '')
+        keycode_raw = b.get('keycode', '')
+        desc = b.get('description', '')
+        allow_desc = b.get('allow_input_capture', '')
+        arg = b.get('arg', '')
+        disp = b.get('dispatcher', '')
+
+        # keycode contains the actual key name when key is 'false'
+        if str(key_raw) == 'false' and keycode_raw and keycode_raw != 'false':
+            actual_key = str(keycode_raw)
+        elif str(key_raw) != 'false':
+            actual_key = str(key_raw)
+        else:
+            continue
+
+        # For special keys (XF86*), description might be 'false', use allow_input_capture
+        if desc == 'false' and allow_desc:
+            desc = allow_desc
+        elif desc == 'false':
+            desc = ''
+
+        if not actual_key or actual_key == 'false':
+            continue
+
+        arg = shorten_path(arg)
+
+        # Build modmask string
+        mask = get_modmask(b)
+        mod_parts = []
+        if mask & 1: mod_parts.append('SHIFT')
+        if mask & 4: mod_parts.append('CTRL')
+        if mask & 8: mod_parts.append('ALT')
+        if mask & 64: mod_parts.append('SUPER')
+        mod_str = ' '.join(mod_parts)
+
+        # Output: MODMASK,key,description,dispatcher,arg
+        print(f'{mod_str},{actual_key},{desc},{disp},{arg}')
+except Exception as e:
+    sys.stderr.write(f'Error: {e}\n')
+    sys.exit(1)
+" 2>/dev/null
 }
 
 # Hardcoded bindings, like the copy-url extension and such
