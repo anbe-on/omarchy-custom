@@ -1,5 +1,4 @@
 -- Control your input devices
--- Control your input devices
 -- See https://wiki.hypr.land/Configuring/Variables/#input
 hl.config({
   input = {

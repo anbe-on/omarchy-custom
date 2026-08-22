@@ -263,9 +263,13 @@ remove_windows() {
 
 launch_windows() {
   KEEP_ALIVE=false
-  if [[ $1 = "--keep-alive" ]] || [[ $1 = "-k" ]]; then
-    KEEP_ALIVE=true
-  fi
+  MINIMAL=false
+  for arg in "$@"; do
+    case "$arg" in
+      --keep-alive|-k) KEEP_ALIVE=true ;;
+      --minimal|-m) MINIMAL=true ;;
+    esac
+  done
 
   # Check if config exists
   if [[ ! -f $COMPOSE_FILE ]]; then
@@ -329,6 +333,22 @@ To stop: omarchy-windows-vm stop"
     "" \
     "$LIFECYCLE"
 
+  # Preflight: catch VPN-blocked transport before launching FreeRDP, so a
+  # silent freeze becomes a clear error message instead.
+  if command -v nc &> /dev/null; then
+    if ! timeout 3 nc -z 127.0.0.1 3389 2>/dev/null; then
+      gum style --border normal --padding "1 2" --margin "1" --foreground 1 \
+        "⚠️  127.0.0.1:3389 is not reachable right now." \
+        "" \
+        "If a VPN (e.g. GlobalProtect) is connected, its local firewall" \
+        "may be blocking outbound RDP (port 3389), even to loopback." \
+        "" \
+        "Run 'omarchy-windows-vm diagnose' for details, or disconnect" \
+        "the VPN and try again."
+      exit 1
+    fi
+  fi
+
   # Detect display scale from Hyprland
   HYPR_SCALE=$(hyprctl monitors -j | jq -r '.[] | select (.focused == true) | .scale')
   SCALE_PERCENT=$(echo "$HYPR_SCALE" | awk '{print int($1 * 100)}')
@@ -341,8 +361,17 @@ To stop: omarchy-windows-vm stop"
   fi
   # If scale is less than 130%, don't set any scale (use default 100)
 
-  # Connect with RDP in fullscreen (auto-detects resolution)
-  xfreerdp3 /u:"$WIN_USER" /p:"$WIN_PASS" /v:127.0.0.1:3389 -grab-keyboard /sound /microphone /clipboard /cert:ignore /title:"Windows VM - Omarchy" /dynamic-resolution /gfx:AVC444 /floatbar:sticky:off,default:visible,show:fullscreen $RDP_SCALE
+  if [[ $MINIMAL = "true" ]]; then
+    # Stripped-down session: no sound/mic/gfx-codec/dynamic-res channels.
+    # Use this to isolate whether a VPN freeze is caused by one of those
+    # channels stalling (common with audio backends or codec negotiation
+    # trying to touch the network) rather than the RDP transport itself.
+    echo "Connecting with minimal channels (no sound/mic/gfx/dynamic-res)..."
+    xfreerdp3 /u:"$WIN_USER" /p:"$WIN_PASS" /v:127.0.0.1:3389 -grab-keyboard /clipboard /cert:ignore /title:"Windows VM - Omarchy" $RDP_SCALE
+  else
+    # Connect with RDP in fullscreen (auto-detects resolution)
+    xfreerdp3 /u:"$WIN_USER" /p:"$WIN_PASS" /v:127.0.0.1:3389 -grab-keyboard /sound /microphone /clipboard /cert:ignore /title:"Windows VM - Omarchy" /dynamic-resolution /gfx:AVC444 /floatbar:sticky:off,default:visible,show:fullscreen $RDP_SCALE
+  fi
 
   # After RDP closes, stop the container unless --keep-alive was specified
   if [[ $KEEP_ALIVE = "false" ]]; then
@@ -399,6 +428,52 @@ status_windows() {
   fi
 }
 
+diagnose_windows() {
+  echo "=== Windows VM / RDP network diagnostics ==="
+  echo "Run this BEFORE connecting your VPN, then again AFTER, and diff the two."
+  echo ""
+
+  echo "--- Default route ---"
+  ip route show default
+  echo ""
+
+  echo "--- Full route table ---"
+  ip route show
+  echo ""
+
+  echo "--- Loopback interface ---"
+  ip addr show lo
+  echo ""
+
+  echo "--- Listening sockets (3389 / 8006) ---"
+  ss -tlnp 2>/dev/null | grep -E ':3389|:8006' || echo "(nothing listening — is the VM running? omarchy-windows-vm status)"
+  echo ""
+
+  echo "--- iptables NAT rules touching docker/3389/8006 ---"
+  sudo iptables -t nat -L -n -v 2>/dev/null | grep -E '3389|8006|DOCKER' || echo "(none found, or need sudo)"
+  echo ""
+
+  echo "--- Raw TCP reachability test (bypasses RDP/app layer entirely) ---"
+  if command -v nc &> /dev/null; then
+    if timeout 3 nc -z 127.0.0.1 3389 2>/dev/null; then
+      echo "✅ TCP handshake to 127.0.0.1:3389 succeeded — transport layer is fine."
+      echo "   If RDP still freezes, the problem is inside FreeRDP's session"
+      echo "   negotiation (NLA/CredSSP, sound, mic, or gfx channel), not the network."
+      echo "   Try: omarchy-windows-vm launch --minimal"
+    else
+      echo "❌ TCP handshake to 127.0.0.1:3389 timed out or was refused."
+      echo "   Something is blocking the connection before it even reaches FreeRDP —"
+      echo "   most likely your VPN client's local firewall/HIP enforcement rules."
+      echo "   Check: sudo iptables -S OUTPUT | grep 3389"
+      echo "          sudo nft list ruleset 2>/dev/null | grep -i 3389"
+    fi
+  else
+    echo "(netcat not installed — run: omarchy-pkg-add openbsd-netcat)"
+  fi
+  echo ""
+  echo "=== End diagnostics ==="
+}
+
 show_usage() {
   echo "Usage: omarchy-windows-vm [command] [options]"
   echo ""
@@ -408,14 +483,20 @@ show_usage() {
   echo "  launch [options]     Start Windows VM (if needed) and connect via RDP"
   echo "                       Options:"
   echo "                         --keep-alive, -k   Keep VM running after RDP closes"
+  echo "                         --minimal, -m       Drop sound/mic/gfx/dynamic-res channels"
+  echo "                                              (use to isolate VPN-related freezes)"
   echo "  stop                 Stop the running Windows VM"
   echo "  status               Show current VM status"
+  echo "  diagnose             Print routing/firewall/reachability info for 3389 & 8006"
+  echo "                       (run before and after connecting your VPN to compare)"
   echo "  help                 Show this help message"
   echo ""
   echo "Examples:"
   echo "  omarchy-windows-vm install           # Set up Windows VM for first time"
   echo "  omarchy-windows-vm launch            # Connect to VM (auto-stop on exit)"
   echo "  omarchy-windows-vm launch -k         # Connect to VM (keep running)"
+  echo "  omarchy-windows-vm launch -m         # Connect with minimal RDP channels"
+  echo "  omarchy-windows-vm diagnose          # Check why RDP might be failing under VPN"
   echo "  omarchy-windows-vm stop              # Shut down the VM"
 }
 
@@ -428,13 +509,17 @@ case "$1" in
     remove_windows
     ;;
   launch|start)
-    launch_windows "$2"
+    shift
+    launch_windows "$@"
     ;;
   stop|down)
     stop_windows
     ;;
   status)
     status_windows
+    ;;
+  diagnose)
+    diagnose_windows
     ;;
   help|--help|-h|"")
     show_usage

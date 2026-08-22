@@ -1,0 +1,147 @@
+#!/bin/bash
+
+# Cycle monitor refresh rate to the next available option
+# Preserves scale from user's monitors.conf
+
+set -e
+
+SCALE_FILE="$HOME/.config/hypr/monitors.conf"
+
+get_focused_monitor() {
+  hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused == true) | .name'
+}
+
+get_scale_from_config() {
+  local monitor="$1"
+  # Try to get scale from user's monitors.conf
+  # Format: monitor=name,preferred,auto,scale or monitor=,preferred,auto,scale
+  if [[ -f "$SCALE_FILE" ]]; then
+    # Match lines like: monitor=,preferred,auto,1.5 or monitor=eDP-1,preferred,auto,1.5
+    grep "^monitor=" "$SCALE_FILE" | grep -v "^#" | head -1 | awk -F',' '{print $4}'
+  fi
+}
+
+get_current_rate() {
+  local monitor="$1"
+  hyprctl monitors 2>/dev/null | awk -v mon="$monitor" '
+    $1 == "Monitor" && $2 == mon {
+      getline
+      match($0, /@([0-9]+)/)
+      if (RSTART > 0) {
+        print substr($0, RSTART+1, RLENGTH-1)
+      }
+      exit
+    }
+  '
+}
+
+get_resolution() {
+  local monitor="$1"
+  hyprctl monitors 2>/dev/null | awk -v mon="$monitor" '
+    $1 == "Monitor" && $2 == mon {
+      getline
+      sub(/@.*/, "")
+      gsub(/^[ \t]+/, "")
+      print
+      exit
+    }
+  '
+}
+
+get_available_rates() {
+  local monitor="$1"
+  hyprctl monitors 2>/dev/null | awk -v mon="$monitor" '
+    $1 == "Monitor" && $2 == mon {
+      found=1
+      next
+    }
+    found && /^[ \t]+availableModes:/ {
+      sub(/.*availableModes:[ \t]*/, "")
+      gsub(/[ \t]+/, " ")
+      gsub(/,/, "")
+      while (match($0, /@([0-9]+)/)) {
+        print substr($0, RSTART+1, RLENGTH-1)
+        $0 = substr($0, RSTART + RLENGTH)
+      }
+      exit
+    }
+  ' | sort -rn | while read -r rate; do printf "%.0f\n" "$rate"; done | sort -rn | uniq
+}
+
+cycle_refresh_rate() {
+  local monitor="$1"
+  local current_rate="$2"
+  local rates="$3"
+  local resolution="$4"
+  local scale="$5"
+
+  local next_rate=""
+  local found_current=false
+
+  for rate in $rates; do
+    if [[ "$found_current" == "true" ]]; then
+      next_rate="$rate"
+      break
+    fi
+    if [[ "$rate" == "$current_rate" ]]; then
+      found_current=true
+    fi
+  done
+
+  # If we reached the end, cycle back to first
+  if [[ -z "$next_rate" ]]; then
+    next_rate=$(echo "$rates" | head -1)
+  fi
+
+  if [[ -z "$next_rate" || -z "$resolution" ]]; then
+    echo "Error: could not determine next rate or resolution" >&2
+    exit 1
+  fi
+
+  # Default scale to 1 if not found
+  scale=${scale:-1}
+
+  echo "Switching $monitor to ${resolution}@${next_rate}Hz with scale $scale..."
+  if [[ "$scale" == "1" ]]; then
+    hyprctl keyword monitor "$monitor,$resolution@$next_rate" 2>/dev/null
+  else
+    hyprctl keyword monitor "$monitor,$resolution@$next_rate,auto,$scale" 2>/dev/null
+  fi
+
+  notify-send "Refresh Rate" "Switched to ${next_rate}Hz" -u low -t 4000
+}
+
+main() {
+  local monitor
+  local current_rate
+  local rates
+  local resolution
+  local scale
+
+  monitor=$(get_focused_monitor)
+
+  if [[ -z "$monitor" ]]; then
+    echo "Error: could not determine focused monitor" >&2
+    exit 1
+  fi
+
+  current_rate=$(get_current_rate "$monitor")
+  resolution=$(get_resolution "$monitor")
+  scale=$(get_scale_from_config "$monitor")
+  rates=$(get_available_rates "$monitor")
+
+  if [[ -z "$current_rate" || -z "$rates" ]]; then
+    echo "Error: could not determine refresh rates" >&2
+    exit 1
+  fi
+
+  echo "Monitor: $monitor"
+  echo "Resolution: $resolution"
+  echo "Scale from config: ${scale:-not found}"
+  echo "Current rate: ${current_rate}Hz"
+  echo "Available rates: ${rates}"
+
+  cycle_refresh_rate "$monitor" "$current_rate" "$rates" "$resolution" "$scale"
+}
+
+main "$@"

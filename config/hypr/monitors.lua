@@ -41,3 +41,9 @@ hl.config({
     -- single_window_aspect_ratio = "1 1",
   },
 })
+
+-- Monitor and Environment scaling rules
+hl.raw([[
+env = GDK_SCALE,1.5
+monitor=,preferred,auto,1.5
+]])

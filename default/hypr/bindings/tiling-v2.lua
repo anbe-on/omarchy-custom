@@ -130,3 +130,6 @@ hl.bind("SUPER + ALT + code:14", hl.dsp.window.change_group_active({ index = 5 }
 
 -- Cycle monitor scaling
 hl.bind("SUPER + Slash", hl.dsp.exec_cmd("omarchy-hyprland-monitor-scaling-cycle"), { description = "Cycle monitor scaling" })
+
+-- Cycle monitor refresh rate
+hl.bind("SUPER + Backslash", hl.dsp.exec_cmd("omarchy-switch-refresh-rate"), { description = "Cycle monitor refresh rate" })
