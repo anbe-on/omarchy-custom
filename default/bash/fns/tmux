@@ -95,3 +95,174 @@ tsl() {
 
   tmux select-pane -t "${panes[0]}"
 }
+
+# Browse tmux history snapshots with fzf (preview + open)
+# Usage: thist [timestamp]
+thist() {
+  command -v fzf &>/dev/null || { echo "thist needs fzf installed."; return 1; }
+
+  local save_dir="$HOME/.tmux-sessions"
+  local snapshot_dir timestamp
+
+  if [[ -n $1 ]]; then
+    timestamp="$1"
+    snapshot_dir="$save_dir/history-${timestamp}"
+    [[ -d "$snapshot_dir" ]] || { echo "Snapshot not found: $snapshot_dir"; return 1; }
+  else
+    # Pick a snapshot first, newest at the top, with a small preview of its contents
+    snapshot_dir=$(
+      find "$save_dir" -maxdepth 1 -type d -name 'history-*' 2>/dev/null \
+        | sort -r \
+        | fzf --prompt="snapshot> " \
+              --header="Pick a snapshot" \
+              --preview 'ls -la {} 2>/dev/null' \
+              --preview-window=right:40%
+    )
+    [[ -z "$snapshot_dir" ]] && return 0
+  fi
+
+  # Build a friendlier label per file: "session:window.pane" instead of the raw filename
+  local picked
+  picked=$(
+    find "$snapshot_dir" -maxdepth 1 -type f -name 'history_*.txt' 2>/dev/null \
+      | while IFS= read -r f; do
+          local base="${f##*/}"                     # history_SESSION_W_P.txt
+          base="${base#history_}"; base="${base%.txt}"
+          local pane_field="${base##*_}"; base="${base%_*}"
+          local win_field="${base##*_}"; local sess="${base%_*}"
+          printf '%s\t%s:%s.%s\n' "$f" "$sess" "$win_field" "$pane_field"
+        done \
+      | fzf --prompt="pane> " \
+            --header="Pick a pane's history  (snapshot: ${snapshot_dir##*/})" \
+            --delimiter='\t' \
+            --with-nth=2 \
+            --preview 'tail -n 300 {1}' \
+            --preview-window=right:60%
+  )
+
+  [[ -z "$picked" ]] && return 0
+
+  local file="${picked%%$'\t'*}"
+  ${PAGER:-less} "$file"
+}
+
+# Save current tmux state (sessions, windows, panes, paths, layout, running programs) to a timestamped snapshot
+# Usage: tsave
+tsave() {
+  tmux info &>/dev/null || { echo "No tmux server running."; return 1; }
+
+  local timestamp save_dir restore_script history_dir
+  timestamp=$(date +"%Y-%m-%d_%H-%M-%S")
+  save_dir="$HOME/.tmux-sessions"
+  restore_script="$save_dir/restore-${timestamp}.sh"
+  history_dir="$save_dir/history-${timestamp}"
+
+  mkdir -p "$history_dir"
+
+  # Plain shells -> restore as "cd" only, nothing to relaunch
+  local -a shell_cmds=(bash zsh fish sh dash ksh tcsh csh)
+  # Programs worth relaunching verbatim (foreground command line)
+  local -a relaunch_cmds=(vim nvim vi emacs nano ssh mosh less more man tail watch \
+                           python python3 ipython node irb psql mysql sqlite3 \
+                           docker htop btop top tmux git lazygit lazydocker)
+
+  _tsave_is_in() {
+    local needle="$1"; shift
+    local x
+    for x in "$@"; do [[ "$x" == "$needle" ]] && return 0; done
+    return 1
+  }
+
+  {
+    echo "#!/usr/bin/env bash"
+    echo "set -x  # verbose: show each tmux command as it runs"
+    echo "echo 'Restoring tmux snapshot from ${timestamp}'"
+  } > "$restore_script"
+  chmod +x "$restore_script"
+
+  local session
+  while IFS= read -r session; do
+    printf 'tmux has-session -t %q 2>/dev/null || tmux new-session -d -s %q\n' \
+      "$session" "$session" >> "$restore_script"
+
+    local w_idx w_name w_layout w_active
+    while IFS=':' read -r w_idx w_name w_layout w_active; do
+
+      printf 'tmux new-window -d -t %q -n %q 2>/dev/null || tmux rename-window -t %q %q\n' \
+        "$session:$w_idx" "$w_name" "$session:$w_idx" "$w_name" >> "$restore_script"
+
+      local first_pane=true
+      local p_idx p_path p_cmd p_pid p_active
+      while IFS=':' read -r p_idx p_path p_cmd p_pid p_active; do
+
+        local target="$session:$w_idx.$p_idx"
+
+        if [[ "$first_pane" == true ]]; then
+          first_pane=false
+        else
+          printf 'tmux split-window -d -t %q -c %q\n' "$session:$w_idx" "$p_path" >> "$restore_script"
+        fi
+
+        printf 'tmux send-keys -t %q %q C-m\n' "$target" "cd $(printf '%q' "$p_path") && clear" >> "$restore_script"
+
+        # Scrollback is saved for your own reading/grepping later — never injected into the restored pane
+        local hist_file="$history_dir/history_${session}_${w_idx}_${p_idx}.txt"
+        tmux capture-pane -t "$target" -J -pS - > "$hist_file"
+
+        # Resolve the actual foreground command line (not just the process name)
+        local child_pid full_cmd
+        child_pid=$(pgrep -P "$p_pid" 2>/dev/null | head -n1)
+        full_cmd=$(ps -o args= -p "${child_pid:-$p_pid}" 2>/dev/null)
+
+        if _tsave_is_in "$p_cmd" "${shell_cmds[@]}"; then
+          : # plain shell — the cd above is enough
+        elif [[ -n "$full_cmd" ]] && _tsave_is_in "$p_cmd" "${relaunch_cmds[@]}"; then
+          printf 'tmux send-keys -t %q %q C-m\n' "$target" "$full_cmd" >> "$restore_script"
+        else
+          # unknown/unsafe command — don't blindly replay it, just leave a note
+          printf '# pane %s was running: %s (not relaunched — see %s)\n' \
+            "$target" "${full_cmd:-$p_cmd}" "$hist_file" >> "$restore_script"
+        fi
+
+        [[ "$p_active" == "1" ]] && printf 'tmux select-pane -t %q\n' "$target" >> "$restore_script"
+
+      done < <(tmux list-panes -t "$session:$w_idx" \
+                 -F "#{pane_index}:#{pane_current_path}:#{pane_current_command}:#{pane_pid}:#{pane_active}")
+
+      printf 'tmux select-layout -t %q %q\n' "$session:$w_idx" "$w_layout" >> "$restore_script"
+      [[ "$w_active" == "1" ]] && printf 'tmux select-window -t %q\n' "$session:$w_idx" >> "$restore_script"
+
+    done < <(tmux list-windows -t "$session" -F "#{window_index}:#{window_name}:#{window_layout}:#{window_active}")
+
+  done < <(tmux list-sessions -F "#{session_name}")
+
+  unset -f _tsave_is_in
+
+  echo "Snapshot saved: $restore_script"
+  echo "History saved: $history_dir/"
+}
+
+# Restore a tmux snapshot
+# Usage: trestore [timestamp]
+trestore() {
+  local save_dir="$HOME/.tmux-sessions"
+
+  if [[ -z $1 ]]; then
+    echo "Available snapshots in $save_dir:"
+    ls -1 "$save_dir"/restore-*.sh 2>/dev/null | sed 's/.*restore-//;s/\.sh//' || echo "No snapshots found."
+    echo ""
+    echo "Usage: trestore <timestamp>"
+    return 1
+  fi
+
+  local target="$1"
+
+  if [[ -f "$save_dir/restore-${target}.sh" ]]; then
+    target="$save_dir/restore-${target}.sh"
+  elif [[ ! -f "$target" ]]; then
+    echo "Snapshot not found: $target"
+    return 1
+  fi
+
+  bash "$target"
+}
