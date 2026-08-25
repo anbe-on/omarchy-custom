@@ -57,11 +57,11 @@ hl.bind("SUPER + SHIFT + DOWN", hl.dsp.window.swap({ direction = "down" }), { de
 hl.bind("ALT + TAB", function()
   hl.dispatch(hl.dsp.window.cycle_next())
   hl.dispatch(hl.dsp.window.bring_to_top())
-end)
+end, { description = "Cycle to next window" })
 hl.bind("ALT + SHIFT + TAB", function()
   hl.dispatch(hl.dsp.window.cycle_next({ prev = true }))
   hl.dispatch(hl.dsp.window.bring_to_top())
-end)
+end, { description = "Cycle to previous window" })
 
 -- Resize active window
 hl.bind("SUPER + code:20", hl.dsp.window.resize({ x = -100, y = 0 }), { description = "Expand window left" })
