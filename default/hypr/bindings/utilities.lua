@@ -39,30 +39,11 @@ hl.bind("PRINT", hl.dsp.exec_cmd("omarchy-cmd-screenshot"), { description = "Scr
 hl.bind("ALT + PRINT", hl.dsp.exec_cmd("omarchy-menu screenrecord"), { description = "Screenrecording" })
 hl.bind("SUPER + PRINT", hl.dsp.exec_cmd("pkill hyprpicker || hyprpicker -a"), { description = "Color picker" })
 
--- File sharing
-hl.bind("SUPER + CTRL + S", hl.dsp.exec_cmd("omarchy-menu share"), { description = "Share" })
-
--- Waybar-less information
-hl.bind("SUPER + CTRL + ALT + T", hl.dsp.exec_cmd("notify-send \"   $(date +\"%A %H:%M  --  %d %B W%V %Y\")\""), { description = "Show time" })
-hl.bind("SUPER + CTRL + ALT + B", hl.dsp.exec_cmd("omarchy-battery-status"), { description = "Show battery remaining" })
-
 -- Control panels
 hl.bind("SUPER + CTRL + A", hl.dsp.exec_cmd("omarchy-launch-audio"), { description = "Audio controls" })
 hl.bind("SUPER + CTRL + B", hl.dsp.exec_cmd("omarchy-launch-bluetooth"), { description = "Bluetooth controls" })
 hl.bind("SUPER + CTRL + W", hl.dsp.exec_cmd("omarchy-launch-wifi"), { description = "Wifi controls" })
 hl.bind("SUPER + CTRL + T", hl.dsp.exec_cmd("omarchy-launch-tui btop"), { description = "Activity" })
-
--- Dictation
-hl.bind("SUPER + CTRL + X", hl.dsp.exec_cmd("voxtype record toggle"), { description = "Toggle dictation" })
-
--- Zoom
-hl.bind("SUPER + CTRL + Z", function()
-  local current = hl.getoption("cursor:zoom_factor")
-  hl.setkeyword("cursor:zoom_factor", current + 1)
-end, { description = "Zoom in" })
-hl.bind("SUPER + CTRL + ALT + Z", function()
-  hl.setkeyword("cursor:zoom_factor", 1)
-end, { description = "Reset zoom" })
 
 -- Lock system
 hl.bind("SUPER + CTRL + L", hl.dsp.exec_cmd("omarchy-lock-screen"), { description = "Lock system" })

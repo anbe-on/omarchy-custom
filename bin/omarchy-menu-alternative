@@ -37,7 +37,8 @@ present_terminal() {
 }
 
 present_terminal_kitty() {
-  hyprctl dispatch exec "[float; size 644 300; center] kitty --class org.omarchy.terminal -e bash -c \"$1\""
+  local cmd="kitty --class org.omarchy.terminal -e bash -c '$1'"
+  hyprctl dispatch "hl.dsp.exec_cmd(\"$cmd\", { float = true, size = {644, 300}, center = true })"
 }
 
 open_in_editor() {
@@ -157,9 +158,8 @@ declare -A MENU_MAP=(
   ["󱫖  Idle Lock Trigger/Toggle/"]="omarchy-toggle-idle"
   ["󰍜  Top Bar Trigger/Toggle/"]="omarchy-toggle-waybar"
   ["󱂬  Workspace Layout Trigger/Toggle/"]="omarchy-hyprland-workspace-layout-toggle"
-  ["  Window Gaps Trigger/Toggle/"]="omarchy-hyprland-window-gaps-toggle"
   ["  1-Window Ratio Trigger/Toggle/"]="omarchy-hyprland-window-single-square-aspect-toggle"
-  ["󰍹  Display Scaling Trigger/Toggle/"]="omarchy-hyprland-monitor-scaling-cycle"
+  ["󰍹  Display Refresh Rate Trigger/Toggle/"]="omarchy-switch-refresh-rate"
 
   ["  Hybrid GPU Trigger/Hardware/"]="present_terminal omarchy-toggle-hybrid-gpu"
 

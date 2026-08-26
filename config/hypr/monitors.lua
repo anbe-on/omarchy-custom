@@ -43,7 +43,9 @@ hl.config({
 })
 
 -- Monitor and Environment scaling rules
-hl.raw([[
-env = GDK_SCALE,1.5
-monitor=,preferred,auto,1.5
-]])
+hl.monitor({
+  output = "",
+  mode = "preferred",
+  position = "auto",
+  scale = "1.5"
+})

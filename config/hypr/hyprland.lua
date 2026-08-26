@@ -17,7 +17,7 @@ dofile(omarchy .. "/default/hypr/envs.lua")
 dofile(omarchy .. "/default/hypr/looknfeel.lua")
 dofile(omarchy .. "/default/hypr/input.lua")
 dofile(omarchy .. "/default/hypr/windows.lua")
-dofile(home .. "/.config/omarchy/current/theme/hyprland.lua")
+dofile(home .. "/.config/omarchy/current/theme/hyprland.conf")
 
 -- Change your own setup in these files (and overwrite any settings from defaults!)
 require("monitors")
