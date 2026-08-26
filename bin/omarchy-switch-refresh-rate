@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Cycle monitor refresh rate to the next available option
-# Preserves scale from user's monitors.conf
+# Preserves scale from user's monitors.lua
 
 set -e
 
-SCALE_FILE="$HOME/.config/hypr/monitors.conf"
+SCALE_FILE="$HOME/.config/hypr/monitors.lua"
 
 get_focused_monitor() {
   hyprctl monitors -j 2>/dev/null | jq -r '.[] | select(.focused == true) | .name'
@@ -13,11 +13,32 @@ get_focused_monitor() {
 
 get_scale_from_config() {
   local monitor="$1"
-  # Try to get scale from user's monitors.conf
-  # Format: monitor=name,preferred,auto,scale or monitor=,preferred,auto,scale
+  # Parses hl.monitor({ output = "...", scale = "..." }) blocks from monitors.lua.
+  # An output of "" matches every monitor, same as the old blank monitor=,...
+  # convention did in hyprlang.
   if [[ -f "$SCALE_FILE" ]]; then
-    # Match lines like: monitor=,preferred,auto,1.5 or monitor=eDP-1,preferred,auto,1.5
-    grep "^monitor=" "$SCALE_FILE" | grep -v "^#" | head -1 | awk -F',' '{print $4}'
+    awk -v mon="$monitor" '
+      /hl\.monitor\(/ { blk=1; buf="" }
+      blk { buf = buf $0 "\n" }
+      blk && /\)/ {
+        blk=0
+        out=""; sc=""
+        if (match(buf, /output[[:space:]]*=[[:space:]]*"[^"]*"/)) {
+          out = substr(buf, RSTART, RLENGTH)
+          gsub(/output[[:space:]]*=[[:space:]]*"/, "", out)
+          gsub(/"$/, "", out)
+        }
+        if (match(buf, /scale[[:space:]]*=[[:space:]]*"?[0-9.]+"?/)) {
+          sc = substr(buf, RSTART, RLENGTH)
+          gsub(/scale[[:space:]]*=[[:space:]]*"?/, "", sc)
+          gsub(/"$/, "", sc)
+        }
+        if (out == "" || out == mon) {
+          print sc
+          exit
+        }
+      }
+    ' "$SCALE_FILE"
   fi
 }
 
@@ -102,10 +123,14 @@ cycle_refresh_rate() {
   scale=${scale:-1}
 
   echo "Switching $monitor to ${resolution}@${next_rate}Hz with scale $scale..."
+
+  # `hyprctl keyword` no longer works under the Hyprland 0.55+ Lua config
+  # ("keyword can't work with non-legacy parsers. Use eval."). Use
+  # `hyprctl eval` with the hl.monitor() Lua API instead.
   if [[ "$scale" == "1" ]]; then
-    hyprctl keyword monitor "$monitor,$resolution@$next_rate" 2>/dev/null
+    hyprctl eval "hl.monitor({ output = \"$monitor\", mode = \"${resolution}@${next_rate}\", position = \"auto\" })" 2>/dev/null
   else
-    hyprctl keyword monitor "$monitor,$resolution@$next_rate,auto,$scale" 2>/dev/null
+    hyprctl eval "hl.monitor({ output = \"$monitor\", mode = \"${resolution}@${next_rate}\", position = \"auto\", scale = ${scale} })" 2>/dev/null
   fi
 
   notify-send "Refresh Rate" "Switched to ${next_rate}Hz" -u low -t 4000

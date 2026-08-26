@@ -21,29 +21,42 @@ walker -q
 focused=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true).name')
 terminal=$(xdg-terminal-exec --print-id)
 
+# `hyprctl dispatch focusmonitor <name>` and `hyprctl dispatch exec -- ...`
+# stopped working under Hyprland's Lua config ("keyword/legacy dispatch
+# can't work with non-legacy parsers"). Replaced with the Lua-native
+# equivalents below, called through `hyprctl dispatch`.
+
+hypr_focus_monitor() {
+  hyprctl dispatch "hl.dsp.focus({ monitor = \"$1\" })" >/dev/null 2>&1
+}
+
+hypr_exec() {
+  local command="$1"
+  # [[ ]] is a Lua long-bracket string, so we don't have to escape any
+  # quotes that show up inside the command itself.
+  hyprctl dispatch "hl.dsp.exec_cmd([[$command]])" >/dev/null 2>&1
+}
+
 for m in $(hyprctl monitors -j | jq -r '.[] | .name'); do
-  hyprctl dispatch focusmonitor $m
+  hypr_focus_monitor "$m"
 
   case $terminal in
   *Alacritty*)
-    hyprctl dispatch exec -- \
-      alacritty --class=org.omarchy.screensaver \
+    hypr_exec "alacritty --class=org.omarchy.screensaver \
       --config-file ~/.local/share/omarchy/default/alacritty/screensaver.toml \
-      -e omarchy-cmd-screensaver
+      -e omarchy-cmd-screensaver"
     ;;
   *ghostty*)
-    hyprctl dispatch exec -- \
-      ghostty --class=org.omarchy.screensaver \
+    hypr_exec "ghostty --class=org.omarchy.screensaver \
       --config-file=~/.local/share/omarchy/default/ghostty/screensaver \
       --font-size=18 \
-      -e omarchy-cmd-screensaver
+      -e omarchy-cmd-screensaver"
     ;;
   *kitty*)
-    hyprctl dispatch exec -- \
-      kitty --class=org.omarchy.screensaver \
+    hypr_exec "kitty --class=org.omarchy.screensaver \
       --override font_size=18 \
       --override window_padding_width=0 \
-      -e omarchy-cmd-screensaver
+      -e omarchy-cmd-screensaver"
     ;;
   *)
     notify-send "✋  Screensaver only runs in Alacritty, Ghostty, or Kitty"
@@ -51,4 +64,4 @@ for m in $(hyprctl monitors -j | jq -r '.[] | .name'); do
   esac
 done
 
-hyprctl dispatch focusmonitor $focused
+hypr_focus_monitor "$focused"

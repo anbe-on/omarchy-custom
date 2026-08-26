@@ -1,0 +1,16 @@
+-- App-specific tweaks
+local omarchy = os.getenv("HOME") .. "/.local/share/omarchy"
+dofile(omarchy .. "/default/hypr/apps/browser.lua")
+dofile(omarchy .. "/default/hypr/apps/hyprshot.lua")
+dofile(omarchy .. "/default/hypr/apps/jetbrains.lua")
+dofile(omarchy .. "/default/hypr/apps/localsend.lua")
+dofile(omarchy .. "/default/hypr/apps/pip.lua")
+dofile(omarchy .. "/default/hypr/apps/qemu.lua")
+dofile(omarchy .. "/default/hypr/apps/retroarch.lua")
+dofile(omarchy .. "/default/hypr/apps/steam.lua")
+dofile(omarchy .. "/default/hypr/apps/geforce.lua")
+dofile(omarchy .. "/default/hypr/apps/moonlight.lua")
+dofile(omarchy .. "/default/hypr/apps/system.lua")
+dofile(omarchy .. "/default/hypr/apps/terminals.lua")
+dofile(omarchy .. "/default/hypr/apps/walker.lua")
+dofile(omarchy .. "/default/hypr/apps/webcam-overlay.lua")

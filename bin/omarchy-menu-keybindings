@@ -1,319 +1,277 @@
 #!/bin/bash
+#
+# Display Hyprland keybindings (via walker for an interactive search menu).
+#
+# WHY THIS READS THE LUA SOURCE INSTEAD OF `hyprctl -j binds`:
+# For binds registered via hl.bind() using a raw keycode (e.g. "SUPER +
+# code:18") or a multi-line Lua-function callback, Hyprland's own bind
+# table reports NO usable key info at all:
+#
+#   "key": "", "keycode": 0, "dispatcher": "__lua", "arg": "95"
+#
+# `arg` there is an internal Lua closure id, not the key. There is
+# nothing to parse or reverse-engineer - the physical key just isn't in
+# hyprctl's output for these binds. The only place it still exists in
+# plain text is the Lua source itself, so that's what we read.
+#
+# WHERE TO FIND WHICH LUA FILES ARE ACTUALLY LOADED
+#
+# Rather than hardcoding a file list (which drifts the moment you add,
+# remove, or swap a bindings file), this greps your Hyprland Lua config
+# for the actual `dofile(...)` calls and resolves them itself - so it
+# always tracks whatever is really loaded.
+#
+# Handles the common Omarchy pattern:
+#   local omarchy = os.getenv("HOME") .. "/.local/share/omarchy"
+#   dofile(omarchy .. "/default/hypr/bindings/media.lua")
+# as well as plain `dofile("/absolute/path.lua")` calls.
+#
+# Override the search root if your config lives somewhere unusual:
+#   HYPR_CONFIG_DIR=/path/to/hypr omarchy-menu-keybindings --print
+HYPR_CONFIG_DIR="${HYPR_CONFIG_DIR:-$HOME/.config/hypr}"
 
-# Display Hyprland keybindings defined in your configuration using walker for an interactive search menu.
+discover_binding_files() {
+  local dir="$HYPR_CONFIG_DIR"
+  [[ -d "$dir" ]] || return 1
 
-declare -A KEYCODE_SYM_MAP
+  local -a lua_files=()
+  mapfile -t lua_files < <(find "$dir" -name '*.lua' 2>/dev/null)
+  [[ ${#lua_files[@]} -eq 0 ]] && return 1
 
-build_keymap_cache() {
-  local keymap
-  keymap="$(xkbcli compile-keymap)" || {
-    echo "Failed to compile keymap" >&2
-    return 1
-  }
-
-  while IFS=, read -r code sym; do
-    [[ -z $code || -z $sym ]] && continue
-    KEYCODE_SYM_MAP["$code"]="$sym"
-  done < <(
-    awk '
-      BEGIN { sec = "" }
-      /xkb_keycodes/ { sec = "codes"; next }
-      /xkb_symbols/  { sec = "syms";  next }
-      sec == "codes" {
-        if (match($0, /<([A-Za-z0-9_]+)>\s*=\s*([0-9]+)\s*;/, m)) code_by_name[m[1]] = m[2]
-      }
-      sec == "syms" {
-        if (match($0, /key\s*<([A-Za-z0-9_]+)>\s*\{\s*\[\s*([^, \]]+)/, m)) sym_by_name[m[1]] = m[2]
-      }
-      END {
-        for (k in code_by_name) {
-          c = code_by_name[k]
-          s = sym_by_name[k]
-          if (c != "" && s != "" && s != "NoSymbol") print c "," s
-        }
-      }
-    ' <<<"$keymap"
-  )
-}
-
-lookup_keycode_cached() {
-  printf '%s\n' "${KEYCODE_SYM_MAP[$1]}"
-}
-
-parse_keycodes() {
-  local start end elapsed
-  [[ ${DEBUG:-0} == "1" ]] && start=$(date +%s.%N)
+  # Pass 1: collect `var = os.getenv("HOME") .. "suffix"` base-path variables
+  local -A base_map=()
+  local line
   while IFS= read -r line; do
-    if [[ $line =~ code:([0-9]+) ]]; then
-      code="${BASH_REMATCH[1]}"
-      symbol=$(lookup_keycode_cached "$code" "$XKB_KEYMAP_CACHE")
-      echo "${line/code:${code}/$symbol}"
-    elif [[ $line =~ mouse:([0-9]+) ]]; then
-      code="${BASH_REMATCH[1]}"
-
-      case "$code" in
-        272) symbol="LEFT MOUSE BUTTON" ;;
-        273) symbol="RIGHT MOUSE BUTTON" ;;
-        274) symbol="MIDDLE MOUSE BUTTON" ;;
-        *)   symbol="mouse:${code}" ;;
-      esac
-
-      echo "${line/mouse:${code}/$symbol}"
-    else
-      echo "$line"
+    if [[ "$line" =~ ([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*os\.getenv\(\"HOME\"\)[[:space:]]*\.\.[[:space:]]*\"([^\"]*)\" ]]; then
+      base_map["${BASH_REMATCH[1]}"]="${BASH_REMATCH[2]}"
     fi
-  done
+  done < <(cat "${lua_files[@]}" 2>/dev/null)
 
-  if [[ $DEBUG == "1" ]]; then
-    end=$(date +%s.%N)
-    # fall back to awk if bc is missing
-    if command -v bc >/dev/null 2>&1; then
-      elapsed=$(echo "$end - $start" | bc)
-    else
-      elapsed=$(awk -v s="$start" -v e="$end" 'BEGIN{printf "%.6f", (e - s)}')
+  # Pass 2: resolve dofile(var .. "relpath") using that map, or plain
+  # dofile("literal/path") calls directly
+  local -a found=()
+  local var suffix
+  while IFS= read -r line; do
+    if [[ "$line" =~ dofile\([[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*\.\.[[:space:]]*\"([^\"]*)\"[[:space:]]*\) ]]; then
+      var="${BASH_REMATCH[1]}"
+      suffix="${BASH_REMATCH[2]}"
+      [[ -n "${base_map[$var]:-}" ]] && found+=("$HOME${base_map[$var]}$suffix")
+    elif [[ "$line" =~ dofile\([[:space:]]*\"([^\"]+)\"[[:space:]]*\) ]]; then
+      found+=("${BASH_REMATCH[1]}")
     fi
-    echo "[DEBUG] parse_keycodes elapsed: ${elapsed}s" >&2
-  fi
+  done < <(cat "${lua_files[@]}" 2>/dev/null)
+
+  [[ ${#found[@]} -eq 0 ]] && return 1
+  printf '%s\n' "${found[@]}"
 }
 
-# Fetch dynamic keybindings from Hyprland
+mapfile -t BINDING_FILES < <(discover_binding_files)
+if [[ ${#BINDING_FILES[@]} -eq 0 ]]; then
+  echo "warning: couldn't auto-discover dofile()'d bindings under $HYPR_CONFIG_DIR; falling back to Omarchy defaults" >&2
+  BINDING_FILES=(
+    "$HOME/.local/share/omarchy/default/hypr/bindings/media.lua"
+    "$HOME/.local/share/omarchy/default/hypr/bindings/tiling.lua"
+    "$HOME/.local/share/omarchy/default/hypr/bindings/utilities.lua"
+  )
+fi
+
+set -uo pipefail
+FS=$'\x1f'   # unit separator: not IFS-whitespace, so `read` never collapses empty fields
+
+# --- Lookup tables (display only - for prettifying key tokens) -------------
+
+declare -A XF86_MAP=(
+  [XF86AudioRaiseVolume]="Volume up"
+  [XF86AudioLowerVolume]="Volume down"
+  [XF86AudioMute]="Mute"
+  [XF86AudioMicMute]="Mute microphone"
+  [XF86AudioNext]="Next track"
+  [XF86AudioPause]="Pause"
+  [XF86AudioPlay]="Play"
+  [XF86AudioPrev]="Previous track"
+  [XF86AudioStop]="Stop"
+  [XF86AudioRecord]="Record"
+  [XF86MonBrightnessUp]="Brightness up"
+  [XF86MonBrightnessDown]="Brightness down"
+  [XF86KbdBrightnessUp]="Keyboard brightness up"
+  [XF86KbdBrightnessDown]="Keyboard brightness down"
+  [XF86KbdLightOnOff]="Keyboard backlight"
+  [XF86PowerOff]="Power menu"
+  [XF86Calculator]="Calculator"
+  [XF86WWW]="Browser"
+  [XF86Mail]="Mail"
+  [XF86ScreenSaver]="Screen saver"
+  [XF86Sleep]="Sleep"
+  [XF86Wakeup]="Wake"
+  [XF86Eject]="Eject"
+  [XF86Suspend]="Suspend"
+  [XF86Battery]="Battery"
+  [XF86WWAN]="WWAN"
+  [XF86RFKill]="Radio kill"
+  [XF86Documents]="Documents"
+  [XF86Pictures]="Pictures"
+  [XF86Music]="Music"
+  [XF86Video]="Video"
+  [XF86Camera]="Camera"
+  [XF86MusicPlayer]="Music player"
+  [XF86HomePage]="Home page"
+)
+
+# code:N seen in the provided configs - top number/punctuation row,
+# standard US layout. Add more here if you bind other raw keycodes.
+declare -A KEYCODE_MAP=(
+  [10]="1" [11]="2" [12]="3" [13]="4" [14]="5"
+  [15]="6" [16]="7" [17]="8" [18]="9" [19]="0"
+  [20]="-" [21]="="
+)
+
+# --- Parse Lua source into "raw_key_combo<FS>description" lines ------------
 #
-# Also do some pre-processing:
-# - Remove standard Omarchy bin path prefix
-# - Remove uwsm prefix
-# - Map numeric modifier key mask to a textual rendition
-# - Output comma-separated values that the parser can understand
-dynamic_bindings() {
-  hyprctl -j binds 2>/dev/null | python3 -c "
-import sys, re, json
+# Small state machine over each file: when a line contains hl.bind("..."),
+# remember the key combo. Keep scanning (same line or later ones, to cover
+# multi-line function-callback binds like ALT+TAB) until a
+# description = "..." is found, then emit the pair and reset.
 
-def fix_json(data):
-    lines = data.split('\n')
-    for i, line in enumerate(lines):
-        match = re.match(r'^(\s*\"[^\"]+\":\s*)([^\",]+)(,?)$', line)
-        if match:
-            val = match.group(2).strip()
-            if val not in ['true', 'false', 'null'] and not re.match(r'^-?\d+\.?\d*$', val):
-                lines[i] = match.group(1) + '\"' + val.replace('\"', '\\\"') + '\"' + match.group(3)
-    return '\n'.join(lines)
-
-def shorten_path(s):
-    s = s.replace(os.path.expanduser('~/.local/share/omarchy/bin/'), '')
-    s = s.replace('uwsm app -- ', '')
-    s = s.replace('uwsm-app -- ', '')
-    return s
-
-def get_modmask(bind):
-    # In broken JSON:
-    # For bindled (special keys): modmask=True (bool), submap='0' or modifier
-    # For bind (normal binds): modmask=False (bool 0), submap has the modifier mask
-    modmask = bind.get('modmask', 0)
-    submap = bind.get('submap', '0')
-
-    # If modmask is boolean True (bindled type), the actual modifiers might be in submap
-    # but for bindled usually modmask is 0 (no modifiers) or contains the modifier
-    if isinstance(modmask, bool):
-        # For boolean modmask, try to parse submap as the modifier
-        try:
-            return int(submap)
-        except:
-            return 0
-    else:
-        # modmask is a number or numeric string
-        try:
-            return int(modmask)
-        except:
-            try:
-                return int(submap)
-            except:
-                return 0
-
-import os
-data = sys.stdin.read()
-fixed = fix_json(data)
-try:
-    binds = json.loads(fixed)
-    for b in binds:
-        # Broken JSON mapping:
-        # key is always 'false'
-        # keycode contains actual key name
-        # modmask is 'false' or actual number
-        # submap might contain modmask for some binds
-        # description is 'false' for special keys, allow_input_capture has the real desc
-        key_raw = b.get('key', '')
-        keycode_raw = b.get('keycode', '')
-        desc = b.get('description', '')
-        allow_desc = b.get('allow_input_capture', '')
-        arg = b.get('arg', '')
-        disp = b.get('dispatcher', '')
-
-        # keycode contains the actual key name when key is 'false'
-        if str(key_raw) == 'false' and keycode_raw and keycode_raw != 'false':
-            actual_key = str(keycode_raw)
-        elif str(key_raw) != 'false':
-            actual_key = str(key_raw)
-        else:
-            continue
-
-        # For special keys (XF86*), description might be 'false', use allow_input_capture
-        if desc == 'false' and allow_desc:
-            desc = allow_desc
-        elif desc == 'false':
-            desc = ''
-
-        if not actual_key or actual_key == 'false':
-            continue
-
-        arg = shorten_path(arg)
-
-        # Build modmask string
-        mask = get_modmask(b)
-        mod_parts = []
-        if mask & 1: mod_parts.append('SHIFT')
-        if mask & 4: mod_parts.append('CTRL')
-        if mask & 8: mod_parts.append('ALT')
-        if mask & 64: mod_parts.append('SUPER')
-        mod_str = ' '.join(mod_parts)
-
-        # Output: MODMASK,key,description,dispatcher,arg
-        print(f'{mod_str},{actual_key},{desc},{disp},{arg}')
-except Exception as e:
-    sys.stderr.write(f'Error: {e}\n')
-    sys.exit(1)
-" 2>/dev/null
-}
-
-# Hardcoded bindings, like the copy-url extension and such
-static_bindings() {
-    echo "SHIFT ALT,L,Copy URL from Web App,extension,copy-url"
-}
-
-# Parse and format keybindings
-#
-# `awk` does the heavy lifting:
-# - Set the field separator to a comma ','.
-# - Joins the key combination (e.g., "SUPER + Q").
-# - Joins the command that the key executes.
-# - Prints everything in a nicely aligned format.
-parse_bindings() {
-  awk -F, '
-{
-    # Combine the modifier and key (first two fields)
-    key_combo = $1 " + " $2;
-
-    # Clean up: strip leading "+" if present, trim spaces
-    gsub(/^[ \t]*\+?[ \t]*/, "", key_combo);
-    gsub(/[ \t]+$/, "", key_combo);
-
-    # Use description, if set
-    action = $3;
-
-    if (action == "") {
-        # Reconstruct the command from the remaining fields
-        for (i = 4; i <= NF; i++) {
-            action = action $i (i < NF ? "," : "");
+parse_lua_binds() {
+  local file
+  for file in "${BINDING_FILES[@]}"; do
+    [[ -f "$file" ]] || { echo "warning: $file not found, skipping" >&2; continue; }
+    gawk -v fs="$FS" '
+      match($0, /hl\.bind\([ \t]*"([^"]*)"/, m) { pending_key = m[1]; have_key = 1 }
+      match($0, /description[ \t]*=[ \t]*"([^"]*)"/, m2) {
+        if (have_key) {
+          print pending_key fs m2[1]
+          have_key = 0
         }
-
-        # Clean up trailing commas, remove leading "exec, ", and trim
-        sub(/,$/, "", action);
-        gsub(/(^|,)[[:space:]]*exec[[:space:]]*,?/, "", action);
-        gsub(/^[ \t]+|[ \t]+$/, "", action);
-        gsub(/[ \t]+/, " ", key_combo);  # Collapse multiple spaces to one
-
-        # Escape XML entities
-        gsub(/&/, "\\&amp;", action);
-        gsub(/</, "\\&lt;", action);
-        gsub(/>/, "\\&gt;", action);
-        gsub(/"/, "\\&quot;", action);
-        gsub(/'"'"'/, "\\&apos;", action);
-    }
-
-    if (action != "") {
-        printf "%-35s → %s\n", key_combo, action;
-    }
-}'
+      }
+    ' "$file"
+  done
 }
+
+# Hardcoded binds not registered through hl.bind(), like the copy-url extension.
+static_bindings() {
+  printf 'SHIFT + ALT + L%sCopy URL from Web App\n' "$FS"
+}
+
+# --- Key-token prettifying ---------------------------------------------------
+
+resolve_token() {
+  local tok="$1"
+
+  if [[ "$tok" == code:* ]]; then
+    local code="${tok#code:}"
+    printf '%s' "${KEYCODE_MAP[$code]:-keycode $code}"
+    return
+  fi
+
+  if [[ "$tok" == mouse:* ]]; then
+    case "${tok#mouse:}" in
+      272) printf 'LEFT MOUSE BUTTON' ;;
+      273) printf 'RIGHT MOUSE BUTTON' ;;
+      274) printf 'MIDDLE MOUSE BUTTON' ;;
+      *)   printf '%s' "$tok" ;;
+    esac
+    return
+  fi
+
+  if [[ "$tok" == XF86* ]]; then
+    printf '%s' "${XF86_MAP[$tok]:-$tok}"
+    return
+  fi
+
+  case "$tok" in
+    SUPER|SHIFT|CTRL|ALT) printf '%s' "$tok"; return ;;
+  esac
+
+  # Generic fallback for anything else (mouse_down, mouse_up, Slash, etc.)
+  printf '%s' "${tok//_/ }"
+}
+
+prettify_combo() {
+  local combo="$1" IFS='+' tok out=()
+  read -ra parts <<<"$combo"
+  for tok in "${parts[@]}"; do
+    tok="${tok#"${tok%%[![:space:]]*}"}"   # trim leading space
+    tok="${tok%"${tok##*[![:space:]]}"}"   # trim trailing space
+    [[ -z "$tok" ]] && continue
+    out+=("$(resolve_token "$tok")")
+  done
+  local IFS=' '
+  printf '%s' "${out[*]}"
+}
+
+# --- Build the final list ---------------------------------------------------
+
+build_entries() {
+  local combo description
+  while IFS="$FS" read -r combo description; do
+    [[ -z "$combo" || -z "$description" ]] && continue
+    printf '%-35s → %s\n' "$(prettify_combo "$combo")" "$description"
+  done < <({ parse_lua_binds; static_bindings; } | sort -u)
+}
+
+# --- Ordering ---------------------------------------------------------------
+# Roughly mirrors the priority you had before, matched against the
+# description text (which is now always meaningful, since it's
+# hand-written at the bind site rather than inferred).
 
 prioritize_entries() {
   awk '
   {
     line = $0
     prio = 50
-    if (match(line, /Terminal/)) prio = 0
-    if (match(line, /Tmux/)) prio = 1
-    if (match(line, /Browser/) && !match(line, /Browser[[:space:]]*\(/) && !match(line, /SUPER SHIFT.*\+.*B.*→.*Browser/)) prio = 2
-    if (match(line, /File manager/) && !match(line, /File manager \(cwd\)/))  prio = 3
-    if (match(line, /Launch apps/))  prio = 4
-    if (match(line, /Omarchy menu/))  prio = 5
-    if (match(line, /System menu/))  prio = 6
-    if (match(line, /Theme menu/))  prio = 7
-    if (match(line, /Full screen/))  prio = 8
-    if (match(line, /Full width/))  prio = 9
-    if (match(line, /Close window/))  prio = 10
-    if (match(line, /Close all windows/))  prio = 11
-    if (match(line, /Lock system/))  prio = 12
-    if (match(line, /Toggle window floating/))  prio = 13
-    if (match(line, /Toggle window split/))  prio = 14
-    if (match(line, /Pop window/))  prio = 15
-    if (match(line, /Universal/))  prio = 16
-    if (match(line, /Clipboard/))  prio = 17
-    if (match(line, /Audio controls/))  prio = 18
-    if (match(line, /Bluetooth controls/))  prio = 19
-    if (match(line, /Wifi controls/))  prio = 20
-    if (match(line, /Emoji picker/))  prio = 21
-    if (match(line, /Color picker/))  prio = 22
-    if (match(line, /Screenshot/))  prio = 23
-    if (match(line, /Screenrecording/))  prio = 24
-    if (match(line, /SUPER SHIFT.*\+.*B.*→.*Browser/)) prio = 25
-    if (match(line, /File manager \(cwd\)/))  prio = 26
-    if (match(line, /(Switch|Next|Former|Previous).*workspace/))  prio = 27
-    if (match(line, /Move window to workspace/))  prio = 28
-    if (match(line, /Move window silently to workspace/))  prio = 29
-    if (match(line, /Swap window/))  prio = 30
-    if (match(line, /Move window focus/))  prio = 31
-    if (match(line, /Move window$/))  prio = 32
-    if (match(line, /Resize window/))  prio = 33
-    if (match(line, /Expand window/))  prio = 34
-    if (match(line, /Shrink window/))  prio = 35
-    if (match(line, /scratchpad/))  prio = 36
-    if (match(line, /notification/))  prio = 37
-    if (match(line, /Toggle window transparency/))  prio = 38
-    if (match(line, /Toggle workspace gaps/))  prio = 39
-    if (match(line, /Toggle nightlight/))  prio = 40
-    if (match(line, /Toggle locking/))  prio = 41
-    if (match(line, /group/))  prio = 94
-    if (match(line, /Scroll active workspace/))  prio = 95
-    if (match(line, /Cycle to/))  prio = 96
-    if (match(line, /Reveal active/))  prio = 97
-    if (match(line, /Apple Display/))  prio = 98
-    if (match(line, /XF86/))  prio = 99
-
-    # print "priority<TAB>line"
+    if (line ~ /Terminal/)                      prio = 0
+    if (line ~ /Tmux/)                          prio = 1
+    if (line ~ /Browser/)                       prio = 2
+    if (line ~ /File manager/)                  prio = 3
+    if (line ~ /Launch apps/)                   prio = 4
+    if (line ~ /Omarchy menu/)                  prio = 5
+    if (line ~ /System menu/)                   prio = 6
+    if (line ~ /Theme/)                         prio = 7
+    if (line ~ /Full screen/)                   prio = 8
+    if (line ~ /Full width/)                    prio = 9
+    if (line ~ /Close window/)                  prio = 10
+    if (line ~ /Close all windows/)             prio = 11
+    if (line ~ /Lock system/)                   prio = 12
+    if (line ~ /Toggle window floating/)        prio = 13
+    if (line ~ /Toggle window split/)           prio = 14
+    if (line ~ /Pop window/)                    prio = 15
+    if (line ~ /Universal/)                     prio = 16
+    if (line ~ /Clipboard/)                     prio = 17
+    if (line ~ /Audio controls/)                prio = 18
+    if (line ~ /Bluetooth controls/)            prio = 19
+    if (line ~ /Wifi controls/)                 prio = 20
+    if (line ~ /Emoji picker/)                  prio = 21
+    if (line ~ /Color picker/)                  prio = 22
+    if (line ~ /Screenshot/)                    prio = 23
+    if (line ~ /Screenrecording/)               prio = 24
+    if (line ~ /Move window focus|Move focus/)  prio = 31
+    if (line ~ /Switch to workspace/)           prio = 27
+    if (line ~ /Move window to workspace/)      prio = 28
+    if (line ~ /Move window silently/)          prio = 29
+    if (line ~ /Swap window/)                   prio = 30
+    if (line ~ /Resize window|Expand window|Shrink window/) prio = 33
+    if (line ~ /scratchpad/)                    prio = 36
+    if (line ~ /notification/)                  prio = 37
+    if (line ~ /Toggle window transparency/)    prio = 38
+    if (line ~ /Toggle window gaps/)            prio = 39
+    if (line ~ /nightlight/)                    prio = 40
+    if (line ~ /locking/)                       prio = 41
+    if (line ~ /group/)                         prio = 94
+    if (line ~ /Scroll active workspace/)       prio = 95
+    if (line ~ /Cycle to/)                      prio = 96
+    if (line ~ /Apple Display/)                 prio = 98
     printf "%d\t%s\n", prio, line
-  }' |
-  sort -k1,1n -k2,2 |
-  cut -f2-
+  }' | sort -k1,1n -k2,2 | cut -f2-
 }
 
-output_keybindings() {
-  build_keymap_cache
+# --- Entry point -------------------------------------------------------------
 
-  {
-    dynamic_bindings
-    static_bindings
-  } |
-    sort -u |
-    parse_keycodes |
-    parse_bindings |
-    prioritize_entries
-}
-
-if [[ $1 == "--print" || $1 == "-p" ]]; then
-  output_keybindings
+if [[ "${1:-}" == "--print" || "${1:-}" == "-p" ]]; then
+  build_entries | prioritize_entries
 else
   monitor_height=$(hyprctl monitors -j | jq -r '.[] | select(.focused == true) | .height')
-  menu_height=$((monitor_height * 30 / 100))
-
-  output_keybindings |
+  menu_height=$(( monitor_height * 30 / 100 ))
+  build_entries | prioritize_entries |
     walker --dmenu -p 'Keybindings' --width 800 --height "$menu_height"
 fi
