@@ -18,6 +18,7 @@ hl.bind("SUPER + SHIFT + D", hl.dsp.exec_cmd("omarchy-launch-tui lazydocker"), {
 
 -- Unbind screenshot and change int to super shift s
 hl.bind("SUPER + SHIFT + S", hl.dsp.exec_cmd("omarchy-cmd-screenshot"), { description = "Screenshot of region" })
+hl.bind("SUPER + SHIFT + ALT + S", hl.dsp.exec_cmd("omarchy-cmd-screenshot region ocr"), { description = "OCR screenshot region to nvim" })
 
 -- Change input language
 hl.bind("SUPER + SHIFT + L", hl.dsp.exec_cmd("fcitx5-remote -t"))

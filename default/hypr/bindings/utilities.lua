@@ -1,9 +1,7 @@
 -- Menus
-hl.bind("SUPER + SPACE", hl.dsp.exec_cmd("omarchy-launch-walker"), { description = "Launch apps" })
-hl.bind("SUPER + CTRL + E", hl.dsp.exec_cmd("omarchy-launch-walker -m symbols"), { description = "Emoji picker" })
 hl.bind("SUPER + CTRL + C", hl.dsp.exec_cmd("omarchy-menu capture"), { description = "Capture menu" })
 hl.bind("SUPER + CTRL + O", hl.dsp.exec_cmd("omarchy-menu toggle"), { description = "Toggle menu" })
-hl.bind("SUPER + ESCAPE", hl.dsp.exec_cmd("omarchy-menu-alternative"), { description = "Omarchy menu" })
+hl.bind("SUPER + SPACE", hl.dsp.exec_cmd("omarchy-menu-alternative"), { description = "Omarchy menu" })
 hl.bind("XF86PowerOff", hl.dsp.exec_cmd("omarchy-menu system"), { locked = true, description = "Power menu" })
 hl.bind("SUPER + K", hl.dsp.exec_cmd("omarchy-menu-keybindings"), { description = "Show key bindings" })
 hl.bind("XF86Calculator", hl.dsp.exec_cmd("gnome-calculator"), { description = "Calculator" })

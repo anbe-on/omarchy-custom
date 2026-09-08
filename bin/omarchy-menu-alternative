@@ -137,7 +137,7 @@ show_setup_system_menu() {
 
 # --- Flat Map Initialization ---
 declare -A MENU_MAP=(
-  ["󰀻  Apps"]="walker -p 'Launch…'"
+  ["󰀻  Apps"]="omarchy-launch-walker"
 
   ["  Keybindings Learn/"]="omarchy-menu-keybindings"
   ["󱆃  Bash Learn/"]="omarchy-launch-webapp 'https://devhints.io/bash'"
@@ -323,7 +323,9 @@ declare -A MENU_MAP=(
   ["󰐥  Shutdown System/"]="omarchy-system-shutdown"
 )
 
-OPTIONS=$(printf "%s\n" "${!MENU_MAP[@]}" | sort)
+APP_KEY="󰀻  Apps"
+SORTED_OTHERS=$(printf "%s\n" "${!MENU_MAP[@]}" | grep -v "^${APP_KEY}$" | sort)
+OPTIONS="${APP_KEY}\n${SORTED_OTHERS}"
 
 SELECTION=$(echo -e -n "$OPTIONS" | omarchy-launch-walker --dmenu --width 620 --minheight 1 --maxheight 415 -p "$(date +'%H:%M %a %d %b') $(omarchy-battery-remaining-time) $(cat /sys/class/power_supply/BAT1/capacity)󰏰 $(grep -q Charging /sys/class/power_supply/BAT1/status && echo 󰂄 || echo 󰁹)" 2>/dev/null)
 

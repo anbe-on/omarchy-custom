@@ -128,6 +128,16 @@ if [[ $PROCESSING == "slurp" ]]; then
     ACTION=$(notify-send "Screenshot saved to clipboard and file" "Edit with Super + Alt + , (or click this)" -t 10000 -i "$FILEPATH" -A "default=edit")
     [[ $ACTION == "default" ]] && open_editor "$FILEPATH"
   ) &
+elif [[ $PROCESSING == "ocr" ]]; then
+  TXT_FILE="/tmp/ocr-$(date +%s).txt"
+  grim -g "$SELECTION" - | tesseract stdin stdout -l eng+ind+jpn 2>/dev/null > "$TXT_FILE"
+
+  if [[ ! -s $TXT_FILE ]]; then
+    notify-send "OCR: no text found" -u low -t 3000
+    rm -f "$TXT_FILE"
+  else
+    "${TERMINAL:-alacritty}" -e nvim "$TXT_FILE" &
+  fi
 else
   grim -g "$SELECTION" - | wl-copy
 fi
