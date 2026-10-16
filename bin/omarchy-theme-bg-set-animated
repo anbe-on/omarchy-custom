@@ -3,6 +3,11 @@
 # Seek .gif files in Pictures and current themes as animated background
 
 CURRENT_BACKGROUND_LINK="$HOME/.config/omarchy/current/background"
+AWWW_CACHE_DIR="$HOME/.cache/awww"
+
+cache_size_human() {
+  du -sh "$AWWW_CACHE_DIR" 2>/dev/null | cut -f1
+}
 
 if pgrep -x "awww-daemon" > /dev/null; then
   DAEMON_ACTION="Stop awww-daemon"
@@ -10,7 +15,13 @@ else
   DAEMON_ACTION="Start awww-daemon"
 fi
 
-ACTION=$(echo -e "Select GIF Wallpaper\n$DAEMON_ACTION" | fzf --prompt="Wallpaper Menu > ")
+CACHE_SIZE=$(cache_size_human)
+
+ACTION=$(printf '%s\n' \
+  "Select GIF Wallpaper" \
+  "$DAEMON_ACTION" \
+  "Clear awww cache (${CACHE_SIZE:-0})" \
+  | fzf --prompt="Wallpaper Menu > ")
 
 case "$ACTION" in
   "Select GIF Wallpaper")
@@ -39,5 +50,9 @@ case "$ACTION" in
 
   "Stop awww-daemon")
     pkill -x awww-daemon
+    ;;
+
+  "Clear awww cache"*)
+    rm -rf "${AWWW_CACHE_DIR:?}"/*
     ;;
 esac

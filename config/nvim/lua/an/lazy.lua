@@ -480,14 +480,6 @@ require("lazy").setup({
 
       local bubbles_theme = get_bubbles_theme()
 
-      vim.api.nvim_create_autocmd("ColorScheme", {
-        callback = function()
-          pcall(function()
-            require('lualine').setup({ options = { theme = get_bubbles_theme() } })
-          end)
-        end,
-      })
-
       -- Function to abbreviate mode names
       local function mode_abbrev(mode)
         local map = {

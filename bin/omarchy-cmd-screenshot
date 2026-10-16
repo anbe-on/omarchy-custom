@@ -129,15 +129,37 @@ if [[ $PROCESSING == "slurp" ]]; then
     [[ $ACTION == "default" ]] && open_editor "$FILEPATH"
   ) &
 elif [[ $PROCESSING == "ocr" ]]; then
+  TMP_IMG="/tmp/ocr-$(date +%s).png"
   TXT_FILE="/tmp/ocr-$(date +%s).txt"
-  grim -g "$SELECTION" - | tesseract stdin stdout -l eng+ind+jpn 2>/dev/null > "$TXT_FILE"
+  grim -g "$SELECTION" "$TMP_IMG" || exit 1
 
-  if [[ ! -s $TXT_FILE ]]; then
-    notify-send "OCR: no text found" -u low -t 3000
-    rm -f "$TXT_FILE"
+  # Try QR first (zbar)
+  QR_CONTENT=$(zbarimg -q --raw "$TMP_IMG" 2>/dev/null)
+
+  if [[ -n "$QR_CONTENT" ]]; then
+    {
+      echo "=== QR CODE(S) DETECTED ==="
+      echo "$QR_CONTENT"
+      echo
+      echo "=== OCR TEXT ==="
+      tesseract "$TMP_IMG" stdout -l eng+ind 2>/dev/null
+    } > "$TXT_FILE"
+
+    # Copy the first QR result to clipboard
+    echo "$QR_CONTENT" | head -n1 | wl-copy
+    notify-send "QR Code found & copied" "$(echo "$QR_CONTENT" | head -n1)" -t 6000 -i "$TMP_IMG"
   else
-    "${TERMINAL:-alacritty}" -e nvim "$TXT_FILE" &
+    tesseract "$TMP_IMG" stdout -l eng+ind 2>/dev/null > "$TXT_FILE"
+
+    if [[ ! -s $TXT_FILE ]]; then
+      notify-send "OCR: no text or QR found" -u low -t 3000
+      rm -f "$TMP_IMG" "$TXT_FILE"
+      exit 0
+    fi
   fi
+
+  "${TERMINAL:-alacritty}" -e nvim "$TXT_FILE" &
+  rm -f "$TMP_IMG"
 else
   grim -g "$SELECTION" - | wl-copy
 fi

@@ -11,14 +11,7 @@ $golang\
 $php\
 $python\
 [](fg:#1F1F28)\
-$cmd_duration\
 \n$character"""
-
-[cmd_duration]
-min_time = 0
-style = "fg:#C8C093"
-format = '[[ $duration](fg:#C8C093)]($style)'
-show_milliseconds = false
 
 [directory]
 style = "bg:#363646 fg:#DCD7BA"
@@ -77,5 +70,5 @@ python_binary = ["python", "python3", "python2"]
 
 # Customize ❯ symbol
 [character]
-success_symbol = "[ ↳](fg:#DCD7BA)"
-error_symbol = "[ ↳](fg:#FF5D62)"
+success_symbol = "[ ](fg:#DCD7BA)"
+error_symbol = "[ ](fg:#FF5D62)"

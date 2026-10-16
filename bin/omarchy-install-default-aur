@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# Install the default AUR packages, reviewing each PKGBUILD first.
+# Run on first login in a terminal (from install/first-run/aur.sh), because the
+# main installer is non-interactive.
+
+# Show failures and keep the terminal open so the user can read them.
+set -e
+trap 'echo; echo "Something failed above."; read -r -p "Press enter to close..."' ERR
+
+OMARCHY_PATH="${OMARCHY_PATH:-$HOME/.local/share/omarchy}"
+export PATH="$OMARCHY_PATH/bin:$PATH"
+
+AUR_LIST="$OMARCHY_PATH/install/omarchy-aur.packages"
+[[ -f $AUR_LIST ]] || { echo "No AUR list at $AUR_LIST"; read -r -p "Press enter to close..."; exit 0; }
+
+mapfile -t aur_packages < <(grep -v '^#' "$AUR_LIST" | grep -v '^$')
+(( ${#aur_packages[@]} > 0 )) || exit 0
+
+# Make sure we can sudo interactively (we're in a real terminal here).
+sudo -v || { echo "sudo authentication failed"; read -r -p "Press enter to close..."; exit 1; }
+
+# yay is the AUR helper and is itself AUR. Build it from source (reviewable),
+# never from an unreviewed [omarchy] binary.
+if ! command -v yay &>/dev/null; then
+  echo "Bootstrapping yay from the AUR..."
+  sudo pacman -S --needed --noconfirm base-devel git || true
+
+  tmp=$(mktemp -d)
+  if ! git clone --depth=1 https://aur.archlinux.org/yay.git "$tmp/yay"; then
+    echo "Failed to clone yay from the AUR (network?)"
+    read -r -p "Press enter to close..."
+    exit 1
+  fi
+  if ! (cd "$tmp/yay" && makepkg -si --noconfirm); then
+    echo "Failed to build/install yay"
+    rm -rf "$tmp"
+    read -r -p "Press enter to close..."
+    exit 1
+  fi
+  rm -rf "$tmp"
+fi
+
+if ! command -v yay &>/dev/null; then
+  echo "yay is still not available after bootstrap; aborting."
+  read -r -p "Press enter to close..."
+  exit 1
+fi
+
+# Collect the packages to install (everything except yay itself, which we just
+# built). omarchy-pkg-aur-add shows each PKGBUILD for review.
+review_pkgs=()
+for p in "${aur_packages[@]}"; do
+  [[ $p == "yay" ]] && continue
+  omarchy-pkg-missing "$p" && review_pkgs+=("$p")
+done
+
+if (( ${#review_pkgs[@]} > 0 )); then
+  omarchy-pkg-aur-add "${review_pkgs[@]}"
+fi
+
+echo "Default AUR packages done."
