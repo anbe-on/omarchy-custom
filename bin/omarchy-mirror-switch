@@ -1,0 +1,163 @@
+#!/bin/bash
+
+# Switch the pacman mirror source between exactly two modes:
+#
+#   omarchy  - Omarchy's stable Arch mirror
+#              (https://stable-mirror.omarchy.org/$repo/os/$arch), a curated
+#              snapshot that updates roughly monthly.
+#   arch     - Real Arch Linux mirrors chosen with reflector + an fzf country
+#              picker.
+#
+# The [omarchy] package repo in pacman.conf is left untouched in both modes.
+# Note: [omarchy] itself rebuilds some AUR packages as binaries; see
+# omarchy-pkg-origin. This command only changes /etc/pacman.d/mirrorlist.
+# Run with sudo.
+
+set -e
+
+# Self-elevate. `sudo omarchy-mirror-switch` fails because sudo resets PATH
+# (secure_path) and can't find this script. Re-exec via our own absolute path
+# and preserve PATH so omarchy-* helpers remain available under sudo.
+if (( EUID != 0 )); then
+  exec sudo -- env "PATH=$PATH" "$(readlink -f "$0")" "$@"
+fi
+
+if omarchy-cmd-missing reflector; then
+  echo "reflector is required. Install with: omarchy-pkg-add reflector" >&2
+  exit 1
+fi
+
+MIRRORLIST="/etc/pacman.d/mirrorlist"
+# Reflector timeouts are in seconds and bound how long each mirror may take to
+# be rated. This VM/slow links need more than 1-3s or every mirror times out and
+# reflector yields nothing.
+REFLECTOR_TIMEOUT=10
+REFLECTOR_COUNT=20
+
+# Back up the current mirrorlist and restore it if anything below fails.
+BACKUP="$MIRRORLIST.bak-$(date +%Y%m%d%H%M%S)"
+cp -f "$MIRRORLIST" "$BACKUP"
+
+tmpfile=$(mktemp)
+cleanup() {
+  rm -f "$tmpfile"
+}
+on_error() {
+  echo -e "\e[31mMirror switch failed; restoring $BACKUP\e[0m" >&2
+  cp -f "$BACKUP" "$MIRRORLIST"
+  cleanup
+}
+trap on_error ERR
+trap cleanup EXIT
+
+# Validate a candidate mirrorlist before installing it: non-empty and has at
+# least one Server line.
+valid_mirrorlist() {
+  [[ -s $1 ]] && grep -q '^[[:space:]]*Server' "$1"
+}
+
+omarchy_mirror() {
+  {
+    echo "# Omarchy stable mirror"
+    echo "Server = https://stable-mirror.omarchy.org/\$repo/os/\$arch"
+  } >"$tmpfile"
+  valid_mirrorlist "$tmpfile" || { echo "Generated mirrorlist invalid" >&2; return 1; }
+  cp -f "$tmpfile" "$MIRRORLIST"
+  echo "Switched to Omarchy stable mirror (backup: $BACKUP)"
+}
+
+arch_mirror() {
+  local countries selections joined
+  # `reflector --list-countries` prints whitespace-separated columns:
+  # "Country Name  CC  MirrorCount". Country names may contain spaces, so strip
+  # the trailing 2-letter code and count to recover the full name.
+  countries=$(reflector --list-countries 2>/dev/null | tail -n +3 |
+    sed -E 's/[[:space:]]+[A-Z]{2}[[:space:]]+[0-9]+[[:space:]]*$//' |
+    sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' | sort -u)
+
+  # Multi-select countries (Tab). reflector accepts comma-separated names.
+  selections=$(printf '%s\n' "$countries" | fzf \
+    --multi \
+    --prompt "Mirror country> " \
+    --header "Tab: multi-select, Enter: confirm, ESC: cancel" \
+    --height 60%) || { echo "Cancelled" >&2; exit 0; }
+
+  if [[ -z $selections ]]; then
+    echo "No country selected" >&2
+    exit 0
+  fi
+
+  joined=$(echo "$selections" | paste -sd, -)
+
+  echo "Testing Arch mirrors in: ${joined} (top ${REFLECTOR_COUNT})..."
+  reflector \
+    --verbose \
+    --country "$joined" \
+    --age 12 \
+    --sort rate \
+    --number "$REFLECTOR_COUNT" \
+    --connection-timeout "$REFLECTOR_TIMEOUT" \
+    --download-timeout "$REFLECTOR_TIMEOUT" \
+    --save "$tmpfile" || true
+
+  valid_mirrorlist "$tmpfile" || { echo "reflector produced no usable mirrors for '$joined'" >&2; return 1; }
+  cp -f "$tmpfile" "$MIRRORLIST"
+  echo "Switched to Arch mirrors ($joined) (backup: $BACKUP)"
+}
+
+choice=$(printf "omarchy\narch\n" | fzf \
+  --prompt "Mirror source> " \
+  --header "omarchy = stable monthly snapshot | arch = live Arch mirrors" \
+  --height 40%) || exit 0
+
+case "$choice" in
+omarchy) omarchy_mirror ;;
+arch) arch_mirror ;;
+*) exit 0 ;;
+esac
+
+# Apply the switch.
+#
+# omarchy mode: -Syyuu forces a full sync (yy) and allows downgrades (uu), so
+# packages newer than the monthly snapshot are pulled back to the snapshot.
+#
+# arch mode: -Syu just syncs and upgrades to the newest rolling packages.
+#
+# linux-firmware* is ignored in omarchy mode: firmware is device-level
+# (Wi-Fi/GPU/audio) and unaffected by userspace apps. Keeping the newer version
+# avoids both the split-package file conflicts (linux-firmware-ti/amd vs the
+# snapshot's monolithic linux-firmware-other) and hardware regressions from a
+# month-old blob.
+if [[ $choice == "omarchy" ]]; then
+  # Show what would change first. A snapshot switch can downgrade a lot at once
+  # (kernel, toolchain); let the user see the plan before committing.
+  echo "Refreshing databases..."
+  pacman -Sy || true
+
+  echo
+  echo "Planned changes switching to the Omarchy snapshot (downgrades allowed):"
+  echo
+  sudo pacman -Syupuu --ignore 'linux-firmware*' --print-format '%n %v -> %i' 2>/dev/null || true
+  echo
+
+  if ! gum confirm "Apply these changes and restore packages to the snapshot?"; then
+    echo "Cancelled" >&2
+    exit 0
+  fi
+
+  echo "Restoring packages to the snapshot (pacman -Syyuu)..."
+  if pacman -Syyuu --noconfirm --ignore 'linux-firmware*'; then
+    echo "Done. Mirrorlist backup kept at: $BACKUP"
+  else
+    echo "pacman -Syyuu failed; restoring previous mirrorlist" >&2
+    exit 1
+  fi
+else
+  echo "Upgrading to the latest Arch packages (pacman -Syu)..."
+  if pacman -Syu --noconfirm; then
+    echo "Done. Mirrorlist backup kept at: $BACKUP"
+  else
+    echo "pacman -Syu failed; restoring previous mirrorlist" >&2
+    exit 1
+  fi
+fi

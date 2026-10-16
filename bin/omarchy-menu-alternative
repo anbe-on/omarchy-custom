@@ -284,10 +284,8 @@ declare -A MENU_MAP=(
   ["  Fido2 Remove/"]="present_terminal 'omarchy-setup-fido2 --remove'"
 
   ["  Omarchy Update/"]="present_terminal omarchy-update"
-  ["🟢  Stable Update/Channel/"]="present_terminal 'omarchy-channel-set stable'"
-  ["🟡  RC Update/Channel/"]="present_terminal 'omarchy-channel-set rc'"
-  ["🟠  Edge Update/Channel/"]="present_terminal 'omarchy-channel-set edge'"
-  ["🔴  Dev Update/Channel/"]="present_terminal 'omarchy-channel-set dev'"
+  ["🟢  Omarchy stable Update/Channel/"]="present_terminal 'omarchy-channel-set stable'"
+  ["🌐  Arch mirrors Update/Channel/"]="present_terminal 'omarchy-mirror-switch'"
   ["  Hyprland Update/Config/"]="present_terminal omarchy-refresh-hyprland"
   ["  Hypridle Update/Config/"]="present_terminal omarchy-refresh-hypridle"
   ["  Hyprlock Update/Config/"]="present_terminal omarchy-refresh-hyprlock"

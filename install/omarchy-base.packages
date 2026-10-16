@@ -36,10 +36,11 @@ fontconfig
 fzf
 github-cli
 gnome-calculator
+gnome-disk-utility
 gnome-keyring
 gnome-themes-extra
-grim
 gpu-screen-recorder
+grim
 gum
 gvfs-mtp
 gvfs-nfs
@@ -47,7 +48,6 @@ gvfs-smb
 hypridle
 hyprland
 hyprland-guiutils
-hyprland-preview-share-picker
 hyprlock
 hyprpicker
 hyprsunset
@@ -64,13 +64,13 @@ kvantum-qt5
 lazydocker
 lazygit
 less
-libsecret
-libyaml
 libqalculate
 libreoffice-fresh
+libsecret
+libyaml
 llvm
-localsend
 luarocks
+make
 mako
 man-db
 mariadb-libs
@@ -79,14 +79,13 @@ mpv
 nautilus
 nautilus-python
 ncdu
+neovim
 nmap
 nodejs
-gnome-disk-utility
 noto-fonts
 noto-fonts-cjk
 noto-fonts-emoji
 nss-mdns
-nvim
 obs-studio
 omarchy-walker
 otf-geist-mono-nerd
@@ -102,6 +101,7 @@ python-gobject
 python-poetry-core
 python-terminaltexteffects
 qt5-wayland
+reflector
 ripgrep
 ruby
 rust
@@ -116,8 +116,8 @@ swww
 system-config-printer
 tailscale
 tldr
-tree-sitter-cli
 tmux
+tree-sitter-cli
 ttf-ia-writer
 ttf-jetbrains-mono-nerd
 tzupdate
@@ -138,5 +138,4 @@ xdg-desktop-portal-hyprland
 xdg-terminal-exec
 xmlstarlet
 yaru-icon-theme
-yay
 zoxide

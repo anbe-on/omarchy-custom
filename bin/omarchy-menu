@@ -520,11 +520,9 @@ show_update_menu() {
 }
 
 show_update_channel_menu() {
-  case $(menu "Update channel" "🟢 Stable\n🟡 RC\n🟠 Edge\n🔴 Dev") in
+  case $(menu "Update channel" "🟢 Omarchy stable\n🌐 Arch mirrors") in
   *Stable*) present_terminal "omarchy-channel-set stable" ;;
-  *RC*) present_terminal "omarchy-channel-set rc" ;;
-  *Edge*) present_terminal "omarchy-channel-set edge" ;;
-  *Dev*) present_terminal "omarchy-channel-set dev" ;;
+  *Arch*) present_terminal "omarchy-mirror-switch" ;;
   *) show_update_menu ;;
   esac
 }
