@@ -6,7 +6,9 @@ hl.bind("SUPER + SHIFT + F", hl.dsp.exec_cmd("uwsm-app -- nautilus --new-window"
 hl.bind("SUPER + ALT + SHIFT + F", hl.dsp.exec_cmd("uwsm-app -- nautilus --new-window \"$(omarchy-cmd-terminal-cwd)\""), { description = "File manager (cwd)" })
 hl.bind("SUPER + SHIFT + B", hl.dsp.exec_cmd("omarchy-launch-browser"), { description = "Browser" })
 hl.bind("SUPER + SHIFT + ALT + B", hl.dsp.exec_cmd("omarchy-launch-browser --private"), { description = "Browser (private)" })
-hl.bind("SUPER + SHIFT + D", hl.dsp.exec_cmd("omarchy-launch-tui lazydocker"), { description = "Docker" })
+-- Docker access requires sudo now (user is NOT in the docker group; that group
+-- is equivalent to passwordless root). See install/config/docker.sh.
+hl.bind("SUPER + SHIFT + D", hl.dsp.exec_cmd("omarchy-launch-tui sudo lazydocker"), { description = "Docker" })
 
 -- If your web app url contains #, type it as ## to prevent hyprland treating it as a comment
 

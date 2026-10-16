@@ -19,8 +19,15 @@ sudo systemctl restart systemd-resolved
 # Start Docker on-demand
 sudo systemctl enable docker.socket
 
-# Give this user privileged Docker access
-sudo usermod -aG docker ${USER}
+# SECURITY: never add the user to the docker group. Membership grants
+# passwordless root, since any user process can mount the host into a
+# root-owned container and read/write root files (e.g.
+# `docker run --rm -v /:/hostroot alpine cat /hostroot/etc/shadow`).
+# Containers must be run with sudo instead.
+# See https://0xcc.io/posts/omarchy-root-creds/
+if id -nG "$USER" | grep -qw docker; then
+  sudo gpasswd -d "$USER" docker
+fi
 
 # Prevent Docker from preventing boot for network-online.target
 sudo mkdir -p /etc/systemd/system/docker.service.d
