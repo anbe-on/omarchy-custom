@@ -17,4 +17,6 @@ $(bash $OMARCHY_PATH/install/config/theme.sh)
 
 omarchy-refresh-limine
 omarchy-refresh-plymouth
-omarchy-nvim-setup
+
+# nvim plugins are restored from config/nvim/lazy-lock.json on first launch;
+# there is no omarchy-nvim bundle anymore.

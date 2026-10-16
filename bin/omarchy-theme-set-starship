@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Sync Starship configuration to the current theme
+
+CURRENT_THEME_DIR="$HOME/.config/omarchy/current/theme"
+STARSHIP_THEME="$CURRENT_THEME_DIR/starship.toml"
+
+if [[ -f $STARSHIP_THEME ]]; then
+  ln -snf "$STARSHIP_THEME" "$HOME/.config/starship.toml"
+fi

@@ -342,7 +342,14 @@ require("lazy").setup({
       -- Integrate colors.lua logic (defer file read to VimEnter)
       vim.api.nvim_create_autocmd("VimEnter", {
         callback = function()
-          vim.cmd.colorscheme('kanagawa-dragon')
+          local is_light = vim.fn.filereadable(vim.fn.expand("~/.config/omarchy/current/theme/light.mode")) == 1
+          if is_light then
+            vim.o.background = "light"
+            vim.cmd.colorscheme('kanagawa-lotus')
+          else
+            vim.o.background = "dark"
+            vim.cmd.colorscheme('kanagawa-dragon')
+          end
           vim.api.nvim_set_hl(0, 'CursorLine', { bg = 'none' })
           vim.cmd 'highlight TelescopeBorder guibg=none'
           vim.cmd 'highlight TelescopeTitle guibg=none'
@@ -415,48 +422,71 @@ require("lazy").setup({
         return ' ' .. str
       end
 
-      local colors = {
-        crystalBlue = '#7E9CD8',
-        lightBlue   = '#A3D4D5',
-        sumiBlack   = '#1F1F28',
-        fujiWhite   = '#DCD7BA',
-        peachRed    = '#FF5D62',
-        sakuraPink  = '#D27E99',
-        fujiGray    = '#727169',
-        trueBlack   = '#000000',
-        oniViolet   = '#957FB8',
-      }
+      local function get_bubbles_theme()
+        local is_light = vim.o.background == 'light'
+        local colors = is_light and {
+          crystalBlue = '#4d699b',
+          lightBlue   = '#597b75',
+          sumiBlack   = '#d5cea3',
+          fujiWhite   = '#545464',
+          peachRed    = '#c84053',
+          sakuraPink  = '#b35b79',
+          fujiGray    = '#8a8980',
+          trueBlack   = '#43436c',
+          oniViolet   = '#624c83',
+        } or {
+          crystalBlue = '#7E9CD8',
+          lightBlue   = '#A3D4D5',
+          sumiBlack   = '#1F1F28',
+          fujiWhite   = '#DCD7BA',
+          peachRed    = '#FF5D62',
+          sakuraPink  = '#D27E99',
+          fujiGray    = '#727169',
+          trueBlack   = '#000000',
+          oniViolet   = '#957FB8',
+        }
 
-      local bubbles_theme = {
-        normal = {
-          a = { fg = colors.trueBlack, bg = colors.sakuraPink },
-          b = { fg = colors.fujiWhite, bg = colors.sumiBlack },
-          c = { fg = colors.fujiWhite, bg = 'NONE' },
-          z = { fg = colors.fujiWhite, bg = colors.sumiBlack },
-        },
-        insert = {
-          a = { fg = colors.trueBlack, bg = colors.crystalBlue },
-          z = { fg = colors.fujiWhite, bg = colors.sumiBlack },
-        },
-        visual = {
-          a = { fg = colors.trueBlack, bg = colors.lightBlue },
-          z = { fg = colors.fujiWhite, bg = colors.sumiBlack },
-        },
-        terminal = {
-          a = { fg = colors.trueBlack, bg = colors.oniViolet },
-          z = { fg = colors.fujiWhite, bg = colors.sumiBlack },
-        },
-        replace = {
-          a = { fg = colors.trueBlack, bg = colors.peachRed },
-          z = { fg = colors.fujiWhite, bg = colors.sumiBlack },
-        },
-        inactive = {
-          a = { fg = colors.fujiWhite, bg = colors.sumiBlack },
-          b = { fg = colors.fujiWhite, bg = colors.sumiBlack },
-          c = { fg = colors.fujiWhite, bg = 'NONE' },
-          z = { fg = colors.fujiWhite, bg = colors.sumiBlack },
-        },
-      }
+        return {
+          normal = {
+            a = { fg = colors.trueBlack, bg = colors.sakuraPink },
+            b = { fg = colors.fujiWhite, bg = colors.sumiBlack },
+            c = { fg = colors.fujiWhite, bg = 'NONE' },
+            z = { fg = colors.fujiWhite, bg = colors.sumiBlack },
+          },
+          insert = {
+            a = { fg = colors.trueBlack, bg = colors.crystalBlue },
+            z = { fg = colors.fujiWhite, bg = colors.sumiBlack },
+          },
+          visual = {
+            a = { fg = colors.trueBlack, bg = colors.lightBlue },
+            z = { fg = colors.fujiWhite, bg = colors.sumiBlack },
+          },
+          terminal = {
+            a = { fg = colors.trueBlack, bg = colors.oniViolet },
+            z = { fg = colors.fujiWhite, bg = colors.sumiBlack },
+          },
+          replace = {
+            a = { fg = colors.trueBlack, bg = colors.peachRed },
+            z = { fg = colors.fujiWhite, bg = colors.sumiBlack },
+          },
+          inactive = {
+            a = { fg = colors.fujiWhite, bg = colors.sumiBlack },
+            b = { fg = colors.fujiWhite, bg = colors.sumiBlack },
+            c = { fg = colors.fujiWhite, bg = 'NONE' },
+            z = { fg = colors.fujiWhite, bg = colors.sumiBlack },
+          },
+        }
+      end
+
+      local bubbles_theme = get_bubbles_theme()
+
+      vim.api.nvim_create_autocmd("ColorScheme", {
+        callback = function()
+          pcall(function()
+            require('lualine').setup({ options = { theme = get_bubbles_theme() } })
+          end)
+        end,
+      })
 
       -- Function to abbreviate mode names
       local function mode_abbrev(mode)

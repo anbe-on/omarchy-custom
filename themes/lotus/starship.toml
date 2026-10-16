@@ -1,0 +1,74 @@
+format = """
+[](fg:#d5cea3)\
+$directory\
+[](fg:#d5cea3 bg:#dcd5ac)\
+$git_branch\
+$git_status\
+[](fg:#dcd5ac bg:#e5ddb0)\
+$nodejs\
+$rust\
+$golang\
+$php\
+$python\
+[](fg:#e5ddb0)\
+\n$character"""
+
+[directory]
+style = "bg:#d5cea3 fg:#43436c"
+format = "[$path]($style)"
+truncation_length = 0
+truncate_to_repo = false
+
+[git_branch]
+symbol = ""
+style = "bg:#dcd5ac"
+format = '[[ $symbol $branch ](fg:#624c83 bg:#dcd5ac)]($style)'
+
+[git_status]
+format     = '[[$all_status](fg:#624c83 bg:#dcd5ac)]($style)'
+ahead      = "⇡${count} "
+diverged   = "⇕⇡${ahead_count}⇣${behind_count} "
+behind     = "⇣${count} "
+conflicted = " "
+up_to_date = " "
+untracked  = "? "
+modified   = " "
+stashed    = ""
+staged     = ""
+renamed    = ""
+deleted    = ""
+
+[nodejs]
+symbol = ""
+style = "bg:#e5ddb0"
+format = '[[ $symbol ($version) ](fg:#4d699b bg:#e5ddb0)]($style)'
+
+[rust]
+symbol = ""
+style = "bg:#e5ddb0"
+format = '[[ $symbol ($version) ](fg:#4d699b bg:#e5ddb0)]($style)'
+
+[golang]
+symbol = ""
+style = "bg:#e5ddb0"
+format = '[[ $symbol ($version) ](fg:#4d699b bg:#e5ddb0)]($style)'
+
+[php]
+symbol = ""
+style = "bg:#e5ddb0"
+format = '[[ $symbol ($version) ](fg:#4d699b bg:#e5ddb0)]($style)'
+
+# Only show Python if inside virtualenv
+[python]
+symbol = ""
+style = "bg:#e5ddb0"
+format = "[ $symbol $virtualenv ($version) ](fg:#4d699b bg:#e5ddb0)($style)"
+pyenv_version_name = false
+detect_extensions = []
+detect_files = []
+python_binary = ["python", "python3", "python2"]
+
+# Customize ❯ symbol
+[character]
+success_symbol = "[ ](fg:#545464)"
+error_symbol = "[ ](fg:#c84053)"
