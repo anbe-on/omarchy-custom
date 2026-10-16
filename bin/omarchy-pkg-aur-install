@@ -2,6 +2,12 @@
 
 # Show a fuzzy-finder TUI for picking new AUR packages to install.
 
+if ! command -v yay &>/dev/null; then
+  echo "yay (AUR helper) is not installed. Install it first."
+  read -r -p "Press enter to close..."
+  exit 1
+fi
+
 fzf_args=(
   --multi
   --preview 'yay -Siia {1}'
@@ -16,13 +22,20 @@ fzf_args=(
   --color 'pointer:green,marker:green'
 )
 
-pkg_names=$(yay -Slqa | fzf "${fzf_args[@]}")
+pkg_names=$(yay -Slqa 2>/dev/null | fzf "${fzf_args[@]}")
 
-if [[ -n $pkg_names ]]; then
-  # Add aur/ prefix to each package name and convert to space-separated for yay
-  source omarchy-sudo-keepalive
-
-  echo "$pkg_names" | sed 's/^/aur\//' | tr '\n' ' ' | xargs yay -S --noconfirm
-  sudo updatedb
-  omarchy-show-done
+if [[ -z $pkg_names ]]; then
+  exit 0
 fi
+
+source omarchy-sudo-keepalive
+
+# Add aur/ prefix to each package name for yay
+mapfile -t selected < <(echo "$pkg_names" | sed 's/^/aur\//')
+
+# Review the PKGBUILDs before anything runs as root.
+omarchy-pkg-aur-review "${selected[@]}" || exit 1
+
+echo "$pkg_names" | sed 's/^/aur\//' | tr '\n' ' ' | xargs yay -S --noconfirm
+sudo updatedb
+omarchy-show-done

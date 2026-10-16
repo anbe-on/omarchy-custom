@@ -1,17 +1,55 @@
 #!/bin/bash
 
-# Add the named packages to the system if they're missing. Returns false if it couldn't be done.
+# Add the named packages to the system if they're missing.
+# Official/omarchy repos only. Nothing here touches the AUR: AUR packages must
+# be installed deliberately (omarchy-pkg-aur-add), which reviews the PKGBUILD
+# first, so an unattended install never runs unreviewed code as root.
 
-if omarchy-pkg-missing "$@"; then
-  sudo pacman -S --noconfirm --needed "$@" || exit 1
+pkglist=()
+for pkg in "$@"; do
+  omarchy-pkg-missing "$pkg" && pkglist+=("$pkg")
+done
+
+if (( ${#pkglist[@]} == 0 )); then
+  exit 0
 fi
 
-for pkg in "$@"; do
-  # Secondary check to handle states where pacman doesn't actually register an error
-  if ! pacman -Q "$pkg" &>/dev/null; then
-    echo -e "\033[31mError: Package '$pkg' did not install\033[0m" >&2
-    exit 1
+# One transaction for everything that's missing. Do NOT pre-filter with
+# `pacman -Si`: that fails when a repo DB hasn't been synced yet and would
+# wrongly mark valid [omarchy] packages as unavailable.
+install_batch() {
+  sudo pacman -S --noconfirm --needed "${pkglist[@]}" >/dev/null 2>&1
+}
+
+# The installer primes and keeps sudo alive. If credentials are unexpectedly
+# missing, fail fast with a clear message instead of hanging on a hidden prompt.
+if ! sudo -n true 2>/dev/null; then
+  echo -e "\033[31mERROR: sudo credentials are not available; cannot install packages.\033[0m" >&2
+  echo -e "\033[33mRun 'sudo -v' first, then rerun the installer.\033[0m" >&2
+  exit 0
+fi
+
+if ! install_batch; then
+  # Likely a stale/unsynced DB (e.g. the [omarchy] repo was added mid-run).
+  # Sync once and retry before giving up.
+  echo -e "\033[33mRetrying after syncing package databases...\033[0m" >&2
+  sudo pacman -Sy >/dev/null 2>&1 || true
+  if ! install_batch; then
+    echo -e "\033[31mERROR: could not install: ${pkglist[*]}\033[0m" >&2
+    echo -e "\033[33mThe [omarchy] repo may be unreachable. Verify with: pacman -Sy && pacman -Ss \033[0m" >&2
+    exit 0
   fi
+fi
+
+# Report anything that still didn't land.
+missing=()
+for pkg in "${pkglist[@]}"; do
+  pacman -Q "$pkg" &>/dev/null || missing+=("$pkg")
 done
+
+if (( ${#missing[@]} > 0 )); then
+  echo -e "\033[31mWarning: these packages did not install and were skipped: ${missing[*]}\033[0m" >&2
+  echo -e "\033[33mIf they are AUR packages, install them deliberately with: omarchy-pkg-aur-add ${missing[*]}\033[0m" >&2
+fi
 
 exit 0

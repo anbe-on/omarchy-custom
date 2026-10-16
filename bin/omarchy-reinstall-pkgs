@@ -6,9 +6,30 @@ set -e
 # Set the package repository to the stable mirrors
 omarchy-refresh-pacman
 
-# Downgrade any packages to the stable setup
-sudo pacman -Suu --noconfirm
+# Downgrade any packages to the stable setup.
+# linux-firmware* is ignored: firmware is device-level and keeping the newer
+# version avoids split-package file conflicts and hardware regressions.
+sudo pacman -Suu --noconfirm --ignore 'linux-firmware*'
 
-# Ensure all packages are installed
-mapfile -t packages < <(grep -v '^#' "$OMARCHY_PATH/install/omarchy-base.packages" | grep -v '^$')
-sudo pacman -Syu --noconfirm --needed "${packages[@]}"
+# Ensure all packages are installed, by provenance:
+#   omarchy-base.packages    -> official Arch repos
+#   omarchy-omarchy.packages -> Omarchy's own [omarchy] packages
+#   omarchy-aur.packages     -> AUR code (reviewed before install)
+read_list() {
+  if [[ ! -f $1 ]]; then
+    echo -e "\033[31mError: package list not found: $1\033[0m" >&2
+    return 1
+  fi
+  grep -v '^#' "$1" | grep -v '^$'
+}
+
+mapfile -t arch_packages < <(read_list "$OMARCHY_PATH/install/omarchy-base.packages")
+sudo pacman -Syu --noconfirm --needed "${arch_packages[@]}"
+
+mapfile -t omarchy_packages < <(read_list "$OMARCHY_PATH/install/omarchy-omarchy.packages")
+(( ${#omarchy_packages[@]} > 0 )) && sudo pacman -Syu --noconfirm --needed "${omarchy_packages[@]}"
+
+mapfile -t aur_packages < <(read_list "$OMARCHY_PATH/install/omarchy-aur.packages")
+if (( ${#aur_packages[@]} > 0 )) && omarchy-cmd-present yay; then
+  omarchy-pkg-aur-add "${aur_packages[@]}"
+fi

@@ -1,0 +1,4 @@
+# Packages built and signed by the Omarchy [omarchy] repo. These are Omarchy's
+# own packages (not AUR rebuilds). Installed via pacman during setup.
+
+omarchy-walker

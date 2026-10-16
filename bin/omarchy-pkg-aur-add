@@ -1,12 +1,24 @@
 #!/bin/bash
 
-# Add the named packages to the system from the AUR if they're missing. Returns false if it couldn't be done.
+# Add the named packages to the system from the AUR if they're missing.
+# Returns false if it couldn't be done. Always shows the PKGBUILD for review
+# before building anything as root.
 
-if omarchy-pkg-missing "$@"; then
-  yay -S --noconfirm --needed "$@" || exit 1
+pkglist=()
+for pkg in "$@"; do
+  omarchy-pkg-missing "$pkg" && pkglist+=("$pkg")
+done
+
+if (( ${#pkglist[@]} == 0 )); then
+  exit 0
 fi
 
-for pkg in "$@"; do
+# Always show what the PKGBUILD does before running it as root.
+omarchy-pkg-aur-review "${pkglist[@]}" || exit 1
+
+yay -S --noconfirm --needed "${pkglist[@]}" || exit 1
+
+for pkg in "${pkglist[@]}"; do
   # Secondary check to handle states where pacman doesn't actually register an error
   if ! pacman -Q "$pkg" &>/dev/null; then
     echo -e "\033[31mError: Package '$pkg' did not install\033[0m" >&2

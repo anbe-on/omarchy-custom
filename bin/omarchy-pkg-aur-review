@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# Show the PKGBUILD (and any .install / patch files) for packages so the user
+# can review what will run as root before installing. Returns 0 to proceed,
+# 1 to abort. Respects OMARCHY_AUR_SKIP_REVIEW=1 for scripted use.
+
+set -e
+
+if [[ ${OMARCHY_AUR_SKIP_REVIEW:-} == "1" ]]; then
+  exit 0
+fi
+
+if omarchy-cmd-missing yay; then
+  echo "yay is required to review AUR packages" >&2
+  exit 1
+fi
+
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
+
+# Force the AUR source. A bare `yay -G <pkg>` resolves packages that also
+# exist in a configured repo (e.g. [omarchy]) against the Arch build source
+# on gitlab.archlinux.org, which fails. `aur/<pkg>` pins it to the AUR.
+review_pkgs=()
+for pkg in "$@"; do
+  review_pkgs+=("aur/${pkg#aur/}")
+done
+
+echo -e "\e[1mFetching PKGBUILDs: ${review_pkgs[*]}\e[0m"
+if ! (cd "$tmpdir" && yay -G "${review_pkgs[@]}" >/dev/null 2>&1); then
+  echo -e "\e[31mCould not fetch PKGBUILDs for: $*\e[0m" >&2
+  exit 1
+fi
+
+mapfile -t files < <(find "$tmpdir" -type f | sort)
+if (( ${#files[@]} == 0 )); then
+  echo "No PKGBUILD files retrieved" >&2
+  exit 1
+fi
+
+{
+  for f in "${files[@]}"; do
+    echo "########## ${f#"$tmpdir"/} ##########"
+    cat "$f"
+    echo
+  done
+} | gum pager
+
+echo
+if ! gum confirm "Install $(echo "$*" | tr '\n' ' ')? Review PKGBUILD above first."; then
+  echo "Aborted by user" >&2
+  exit 1
+fi
+
+exit 0

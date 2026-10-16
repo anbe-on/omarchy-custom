@@ -1,0 +1,15 @@
+# ARCH USER REPOSITORY packages. These are AUR code. In upstream Omarchy they
+# are delivered as binaries rebuilt in the [omarchy] repo, which hides that they
+# are unreviewed AUR code. This fork installs them deliberately, reviewing each
+# PKGBUILD first (omarchy-pkg-aur-add -> omarchy-pkg-aur-review).
+#
+# NOTE: yay is the AUR helper itself and must exist before the others install.
+# The installer installs yay first, then prompts to review the rest.
+
+yay
+localsend
+python-terminaltexteffects
+ttf-ia-writer
+tzupdate
+ufw-docker
+yaru-icon-theme
