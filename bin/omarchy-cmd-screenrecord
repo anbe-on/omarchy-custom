@@ -6,13 +6,16 @@
 # omarchy:examples=omarchy screenrecord | omarchy capture screenrecord --with-desktop-audio
 # omarchy:aliases=omarchy screenrecord
 #
-# Env: OMARCHY_SCREENRECORD_USE_PORTAL=true skips the built-in slurp picker and
-# uses gpu-screen-recorder's xdg-desktop-portal capture backend instead. The
-# portal backend was originally added (PR #3401) for HDR-aware capture, support
-# for monitors driven by external GPUs, and window capture — enable it if any
-# of those matter to you. Off by default because the portal path can fail EGL
-# DMA-BUF modifier import on some configurations, leaving recording unable to
-# start.
+# Env: OMARCHY_SCREENRECORD_USE_PORTAL=true uses gpu-screen-recorder's
+# xdg-desktop-portal backend instead of the default picker+kms path. The portal
+# backend supports HDR, external-GPU monitors, and window capture, but requires
+# the compositor to hand gsr dmabuf frames; Hyprland often only offers SHM,
+# which gsr rejects ("failed to provide dmabuf (GPU) video frames"). Default is
+# hyprland-preview-share-picker for target selection + the kms backend for
+# capture, which works on SHM-only compositors.
+#
+# Env: OMARCHY_SCREENRECORD_PICKER=slurp forces the slurp drag-selector instead
+# of hyprland-preview-share-picker.
 #
 # Env: OMARCHY_SCREENRECORD_DEBUG=true appends gpu-screen-recorder's stderr (and
 # the picker target it was launched with) to /tmp/omarchy-screenrecord.log so
@@ -84,6 +87,13 @@ start_webcam_overlay() {
     -probesize 32 -analyzeduration 0 \
     -loglevel quiet &
   sleep 1
+
+  # If ffplay died immediately (bad device/format), surface it instead of a
+  # silent no-overlay recording.
+  if ! pgrep -f "WebcamOverlay" >/dev/null; then
+    notify-send "Webcam overlay failed to start" "$WEBCAM_DEVICE" -u critical -t 4000
+    return 1
+  fi
 }
 
 cleanup_webcam() {
@@ -112,10 +122,46 @@ get_rectangles() {
     "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"'
 }
 
+# Selection via hyprland-preview-share-picker (standalone). It prints:
+#   /screen:<monitor>                 when an output is picked
+#   /region:<output>@<x>,<y>,<w>,<h>  when a region is drawn (global coords)
+# Returns non-zero if cancelled. The output is then mapped to gsr's kms backend
+# (-w <monitor> or -w region -region), avoiding the portal dmabuf/SHM issue.
+select_capture_target_picker() {
+  local selection
+  selection=$(hyprland-preview-share-picker 2>/dev/null) || return 1
+  [[ -n $selection ]] || return 1
+
+  if [[ $selection =~ ^/screen:(.+)$ ]]; then
+    echo "monitor:${BASH_REMATCH[1]}"
+    return 0
+  fi
+
+  if [[ $selection =~ ^/region:[^@]+@(-?[0-9]+),(-?[0-9]+),([0-9]+),([0-9]+)$ ]]; then
+    local x=${BASH_REMATCH[1]} y=${BASH_REMATCH[2]} w=${BASH_REMATCH[3]} h=${BASH_REMATCH[4]}
+    # A bare click (tiny area) snaps to the whole monitor at that point.
+    if (( w * h < 20 )); then
+      local mon
+      mon=$(hyprctl monitors -j | jq -r --argjson x "$x" --argjson y "$y" '
+        .[] | select($x >= .x and $x < (.x + (.width / .scale)) and $y >= .y and $y < (.y + (.height / .scale))) | .name' | head -1)
+      [[ -n $mon ]] && { echo "monitor:$mon"; return 0; }
+    fi
+    echo "region:${w}x${h}+${x}+${y}"
+    return 0
+  fi
+
+  return 1
+}
+
 # Echoes "monitor:NAME" when the selection matches an entire monitor, otherwise
-# "region:WxH+X+Y" with physical-pixel coordinates ready for gpu-screen-recorder.
+# "region:WxH+X+Y" with coordinates ready for gpu-screen-recorder (kms backend).
 # Returns non-zero if the user cancelled the picker.
 select_capture_target() {
+  if [[ ${OMARCHY_SCREENRECORD_PICKER:-slurp} == "picker" ]] && omarchy-cmd-present hyprland-preview-share-picker; then
+    select_capture_target_picker && return 0
+    # fall through to slurp if the picker failed
+  fi
+
   local rects=$(get_rectangles)
   hyprpicker -r -z >/dev/null 2>&1 &
   local picker_pid=$!
@@ -160,32 +206,6 @@ select_capture_target() {
 }
 
 start_screenrecording() {
-  local capture_args=()
-  local target
-
-  # Opt-in path for HDR, external-GPU monitors, and window capture (all things
-  # the portal backend supports and the kms backend doesn't). Default flow uses
-  # slurp + the kms backend, which avoids the EGL DMA-BUF modifier import
-  # failures the portal path can hit on some configurations.
-  if [[ ${OMARCHY_SCREENRECORD_USE_PORTAL:-false} == "true" ]]; then
-    target="portal"
-    capture_args=(-w portal -s "${RESOLUTION:-$(default_resolution)}")
-  else
-    target=$(select_capture_target) || return 1
-
-    case $target in
-    monitor:*)
-      capture_args=(-w "${target#monitor:}" -s "${RESOLUTION:-$(default_resolution)}")
-      ;;
-    region:*)
-      capture_args=(-w "${target#region:}")
-      [[ -n $RESOLUTION ]] && capture_args+=(-s "$RESOLUTION")
-      ;;
-    esac
-  fi
-
-  [[ $WEBCAM == "true" ]] && start_webcam_overlay
-
   local filename="$OUTPUT_DIR/screenrecording-$(date +'%Y-%m-%d_%H-%M-%S').mp4"
   local audio_devices=""
   local audio_args=()
@@ -200,13 +220,64 @@ start_screenrecording() {
 
   [[ -n $audio_devices ]] && audio_args+=(-a "$audio_devices" -ac aac)
 
+  local target
+  local capture_args=()
+
+  # Build the gsr capture args for a "monitor:NAME" or "region:WxH+X+Y" target,
+  # using the kms backend (works everywhere, no portal/dmabuf needed).
+  build_capture_args() {
+    capture_args=()
+    case $1 in
+    monitor:*) capture_args=(-w "${1#monitor:}" -s "${RESOLUTION:-$(default_resolution)}") ;;
+    region:*)
+      capture_args=(-w region -region "${1#region:}")
+      [[ -n $RESOLUTION ]] && capture_args+=(-s "$RESOLUTION")
+      ;;
+    esac
+  }
+
+  if [[ ${OMARCHY_SCREENRECORD_USE_PORTAL:-false} == "true" ]]; then
+    # Portal backend: opens hyprland-preview-share-picker via xdph. Supports
+    # HDR/external-GPU/window capture, but needs the compositor to hand gsr
+    # dmabuf frames — Hyprland often only offers SHM, which gsr rejects.
+    target="portal"
+    capture_args=(-w portal -s "${RESOLUTION:-$(default_resolution)}")
+  else
+    # Default: hyprland-preview-share-picker for selection, kms backend for
+    # capture. Avoids the portal dmabuf/SHM problem entirely.
+    target=$(select_capture_target) || return 1
+    build_capture_args "$target"
+  fi
+
   echo "===== $(date '+%F %T') args: $* target: $target =====" >>"$LOG_FILE"
   gpu-screen-recorder "${capture_args[@]}" -k auto -f 60 -fm cfr -fallback-cpu-encoding yes -o "$filename" "${audio_args[@]}" 2>>"$LOG_FILE" &
   local pid=$!
 
-  while kill -0 $pid 2>/dev/null && [[ ! -f $filename ]]; do
+  # Wait until recording starts (file appears) or gsr exits.
+  local deadline=$((SECONDS + 120))
+  while kill -0 $pid 2>/dev/null && [[ ! -f $filename ]] && (( SECONDS < deadline )); do
     sleep 0.2
   done
+
+  # Portal path failed (gsr exited without producing a file): retry via kms.
+  if [[ $target == "portal" ]] && ! { kill -0 $pid 2>/dev/null && [[ -f $filename ]]; }; then
+    kill $pid 2>/dev/null
+    wait $pid 2>/dev/null
+    echo "===== $(date '+%F %T') portal failed, falling back to kms picker =====" >>"$LOG_FILE"
+
+    target=$(select_capture_target) || return 1
+    build_capture_args "$target"
+
+    gpu-screen-recorder "${capture_args[@]}" -k auto -f 60 -fm cfr -fallback-cpu-encoding yes -o "$filename" "${audio_args[@]}" 2>>"$LOG_FILE" &
+    pid=$!
+    while kill -0 $pid 2>/dev/null && [[ ! -f $filename ]]; do
+      sleep 0.2
+    done
+  fi
+
+  # Only now that capture is actually running, add the webcam overlay so it is
+  # not itself part of the recorded region during target selection.
+  [[ $WEBCAM == "true" ]] && start_webcam_overlay
 
   if kill -0 $pid 2>/dev/null; then
     echo "$filename" >"$RECORDING_FILE"
